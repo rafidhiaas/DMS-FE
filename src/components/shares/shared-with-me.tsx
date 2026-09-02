@@ -69,7 +69,7 @@ export function SharedWithMe() {
       });
       toast.success("Berkas simulasi diunduh (menunggu integrasi S3).");
     } catch (e) {
-      toast.error(getApiErrorMessage(e, e instanceof Error ? e.message : "Gagal mengunduh."));
+      toast.error(getApiErrorMessage(e, "Gagal mengunduh."));
     }
   }
 

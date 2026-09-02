@@ -24,14 +24,25 @@ api.interceptors.response.use(
       );
       window.location.href = `/login?next=${next}`;
     }
-    return Promise.reject(error);
+    // Normalisasi: teruskan pesan asli backend ({ message }) sebagai Error biasa,
+    // sehingga `e.message` di onError hooks/komponen selalu ramah pengguna —
+    // bukan "Request failed with status code 400" bawaan Axios.
+    return Promise.reject(
+      Object.assign(new Error(getApiErrorMessage(error)), {
+        status: error.response?.status,
+      }),
+    );
   },
 );
 
-/** Ekstrak pesan error yang ramah dari respons Axios. */
+/** Ekstrak pesan error yang ramah dari error Axios maupun Error biasa. */
 export function getApiErrorMessage(error: unknown, fallback = "Terjadi kesalahan."): string {
   if (axios.isAxiosError(error)) {
-    return (error.response?.data as { message?: string })?.message ?? fallback;
+    const message = (error.response?.data as { message?: string })?.message;
+    if (message) return message;
+    if (!error.response) return "Tidak dapat terhubung ke server. Periksa koneksi Anda.";
+    return fallback;
   }
+  if (error instanceof Error && error.message) return error.message;
   return fallback;
 }
