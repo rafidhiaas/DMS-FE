@@ -9,5 +9,5 @@ export default async function DocumentPage({
   const { id } = await params;
   const user = await getServerUser();
   if (!user) return null;
-  return <DocumentDetail documentId={id} role={user.role} />;
+  return <DocumentDetail documentId={id} role={user.role} currentUserId={user.id} />;
 }

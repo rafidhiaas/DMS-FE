@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/auth/session";
 import { ROLE_LABELS } from "@/lib/constants";
 import { AppSidebar } from "@/components/app-sidebar";
 import { LogoutButton } from "@/components/logout-button";
+import { MockActor } from "@/components/providers/mock-actor";
 import { Badge } from "@/components/ui/badge";
 
 export default async function DashboardLayout({
@@ -17,6 +18,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-1">
+      {/* Teruskan identitas user login ke mock store (audit/share) di sisi client. */}
+      <MockActor user={user} />
       <AppSidebar role={user.role} />
 
       <div className="flex flex-1 flex-col">

@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Download,
   Pencil,
+  Share2,
   Trash2,
   UploadCloud,
   History,
@@ -16,6 +17,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { useDocument, useRenameDocument, useDeleteDocument, useUploadVersion } from "@/hooks/use-documents";
+import { downloadDocument } from "@/lib/download";
 import { formatBytes, formatDateTime, STATUS_META, ALLOWED_EXTENSIONS, type AllowedExtension } from "@/lib/format";
 import type { Role } from "@/types";
 import { cn } from "@/lib/utils";
@@ -47,13 +49,16 @@ import {
 } from "@/components/ui/dialog";
 import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
+import { ShareDialog } from "@/components/shares/share-dialog";
 
 export function DocumentDetail({
   documentId,
   role,
+  currentUserId,
 }: {
   documentId: string;
   role: Role;
+  currentUserId: string;
 }) {
   const router = useRouter();
   const canWrite = role !== "AUDITOR";
@@ -66,6 +71,7 @@ export function DocumentDetail({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -107,6 +113,20 @@ export function DocumentDetail({
         onError: (e) => toast.error(e.message),
       },
     );
+  }
+
+  async function handleDownload() {
+    try {
+      await downloadDocument({
+        id: documentId,
+        title: doc!.title,
+        extension: doc!.extension,
+        current_version: doc!.current_version,
+      });
+      toast.success("Berkas simulasi diunduh (menunggu integrasi S3).");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal mengunduh berkas.");
+    }
   }
 
   function handleDelete() {
@@ -152,18 +172,21 @@ export function DocumentDetail({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => toast.info("Unduh menunggu integrasi S3 di backend.")}
-          >
+          <Button variant="outline" onClick={handleDownload}>
             <Download className="size-4" />
             Unduh
           </Button>
           {canWrite && (
-            <Button onClick={() => setVersionOpen(true)}>
-              <UploadCloud className="size-4" />
-              Versi Baru
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setShareOpen(true)}>
+                <Share2 className="size-4" />
+                Bagikan
+              </Button>
+              <Button onClick={() => setVersionOpen(true)}>
+                <UploadCloud className="size-4" />
+                Versi Baru
+              </Button>
+            </>
           )}
           {(canWrite || canDelete) && (
             <DropdownMenu>
@@ -272,6 +295,14 @@ export function DocumentDetail({
         currentExtension={doc.extension}
         open={versionOpen}
         onOpenChange={setVersionOpen}
+      />
+      <ShareDialog
+        key={`doc-share-${shareOpen}`}
+        documentId={documentId}
+        documentTitle={doc.title}
+        currentUserId={currentUserId}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
       />
     </div>
   );

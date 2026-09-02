@@ -1,4 +1,4 @@
-import type { DocumentStatus } from "@/types";
+import type { AccessLevel, DocumentStatus } from "@/types";
 
 /** Ubah ukuran byte → format terbaca (KB, MB, GB). */
 export function formatBytes(bytes: number | string, decimals = 1): string {
@@ -51,6 +51,88 @@ export const STATUS_META: Record<
     className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   },
 };
+
+/** Label & deskripsi untuk level akses berbagi dokumen. */
+export const ACCESS_LEVEL_META: Record<
+  AccessLevel,
+  { label: string; description: string; className: string }
+> = {
+  VIEWER: {
+    label: "Viewer",
+    description: "Hanya pratinjau — tidak bisa mengunduh berkas.",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  },
+  DOWNLOADER: {
+    label: "Downloader",
+    description: "Bisa melihat dan mengunduh berkas asli.",
+    className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
+  },
+  EDITOR: {
+    label: "Editor",
+    description: "Bisa mengunggah versi baru dan mengubah judul.",
+    className: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+  },
+};
+
+/**
+ * Action audit log — disinkronkan dengan pemanggilan logActivity di backend.
+ * Dipakai untuk filter dropdown & pewarnaan badge.
+ */
+export const AUDIT_ACTIONS = [
+  "LOGIN",
+  "LOGIN_FAILED",
+  "LOGOUT",
+  "CREATE_FOLDER",
+  "RENAME_FOLDER",
+  "MOVE_FOLDER",
+  "DELETE_FOLDER",
+  "CREATE_DOCUMENT",
+  "RENAME_DOCUMENT",
+  "UPLOAD_VERSION",
+  "DELETE_DOCUMENT",
+  "DOWNLOAD_DOCUMENT",
+  "SHARE_DOCUMENT",
+  "UPDATE_SHARE_ACCESS",
+  "REVOKE_SHARE",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+const ACTION_LABELS: Record<AuditAction, string> = {
+  LOGIN: "Login",
+  LOGIN_FAILED: "Login Gagal",
+  LOGOUT: "Logout",
+  CREATE_FOLDER: "Buat Folder",
+  RENAME_FOLDER: "Ganti Nama Folder",
+  MOVE_FOLDER: "Pindah Folder",
+  DELETE_FOLDER: "Hapus Folder",
+  CREATE_DOCUMENT: "Unggah Dokumen",
+  RENAME_DOCUMENT: "Ganti Judul Dokumen",
+  UPLOAD_VERSION: "Unggah Versi",
+  DELETE_DOCUMENT: "Hapus Dokumen",
+  DOWNLOAD_DOCUMENT: "Unduh Dokumen",
+  SHARE_DOCUMENT: "Bagikan Dokumen",
+  UPDATE_SHARE_ACCESS: "Ubah Akses",
+  REVOKE_SHARE: "Cabut Akses",
+};
+
+/** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */
+export function actionMeta(action: string): { label: string; className: string } {
+  const label = ACTION_LABELS[action as AuditAction] ?? action;
+  if (action === "DELETE_FOLDER" || action === "DELETE_DOCUMENT" || action === "REVOKE_SHARE" || action === "LOGIN_FAILED") {
+    return { label, className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" };
+  }
+  if (action.startsWith("CREATE") || action === "UPLOAD_VERSION") {
+    return { label, className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" };
+  }
+  if (action.startsWith("SHARE") || action === "UPDATE_SHARE_ACCESS") {
+    return { label, className: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300" };
+  }
+  if (action === "LOGIN" || action === "LOGOUT") {
+    return { label, className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" };
+  }
+  return { label, className: "bg-muted text-muted-foreground" };
+}
 
 /** Ekstensi berkas yang didukung backend (whitelist). */
 export const ALLOWED_EXTENSIONS = [

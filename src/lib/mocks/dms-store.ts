@@ -5,10 +5,13 @@ import type {
   DocumentDetail,
   FolderContents,
 } from "@/types";
+import { recordActivity } from "@/lib/mocks/audit-store";
+import { getMockActor } from "@/lib/mocks/actor";
 
 /**
  * MOCK data store untuk Folder & Dokumen — persist di localStorage browser.
- * Meniru perilaku backend Express (termasuk aturan: folder berisi dokumen tak bisa dihapus).
+ * Meniru perilaku backend Express (termasuk aturan: folder berisi dokumen tak
+ * bisa dihapus, dan pencatatan audit log di setiap aksi penting).
  * Ganti dengan API asli begitu backend siap (lihat src/lib/api/*).
  */
 
@@ -91,6 +94,16 @@ function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
+/** Baca daftar dokumen mentah secara sinkron (dipakai mock store lain, mis. share). */
+export function peekDocuments(): DocumentItem[] {
+  return load().documents;
+}
+
+/** Baca daftar folder mentah secara sinkron (dipakai statistik dashboard mock). */
+export function peekFolders(): Folder[] {
+  return load().folders;
+}
+
 export const mockStore = {
   async getContents(folderId: string): Promise<FolderContents> {
     const data = load();
@@ -132,6 +145,7 @@ export const mockStore = {
     };
     data.folders.push(folder);
     save(data);
+    recordActivity("CREATE_FOLDER", `Membuat folder "${folder.name}"`);
     return delay(folder);
   },
 
@@ -139,9 +153,11 @@ export const mockStore = {
     const data = load();
     const folder = data.folders.find((f) => f.id === id);
     if (!folder) throw new Error("Folder tidak ditemukan.");
+    const oldName = folder.name;
     folder.name = name.trim();
     folder.updated_at = new Date().toISOString();
     save(data);
+    recordActivity("RENAME_FOLDER", `Mengganti nama folder "${oldName}" menjadi "${folder.name}"`);
     return delay(folder);
   },
 
@@ -165,8 +181,10 @@ export const mockStore = {
         }
       }
     }
+    const folderName = data.folders.find((f) => f.id === id)?.name ?? id;
     data.folders = data.folders.filter((f) => !toDelete.has(f.id));
     save(data);
+    recordActivity("DELETE_FOLDER", `Menghapus folder "${folderName}"`);
     return delay(undefined);
   },
 
@@ -194,11 +212,12 @@ export const mockStore = {
       document_id: doc.id,
       version_number: 1,
       s3_file_key: `pending-upload/${uuid()}.${input.extension}`,
-      uploaded_by: OWNER,
+      uploaded_by: getMockActor().id,
       changelog: "Versi awal dokumen.",
       created_at: doc.created_at,
     });
     save(data);
+    recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`);
     return delay(doc);
   },
 
@@ -218,17 +237,21 @@ export const mockStore = {
     const data = load();
     const doc = data.documents.find((d) => d.id === id);
     if (!doc) throw new Error("Dokumen tidak ditemukan.");
+    const oldTitle = doc.title;
     doc.title = title.trim();
     doc.updated_at = new Date().toISOString();
     save(data);
+    recordActivity("RENAME_DOCUMENT", `Mengganti judul dokumen "${oldTitle}" menjadi "${doc.title}"`);
     return delay(doc);
   },
 
   async deleteDocument(id: string): Promise<void> {
     const data = load();
+    const title = data.documents.find((d) => d.id === id)?.title ?? id;
     data.documents = data.documents.filter((d) => d.id !== id);
     data.versions = data.versions.filter((v) => v.document_id !== id);
     save(data);
+    recordActivity("DELETE_DOCUMENT", `Menghapus dokumen "${title}" beserta seluruh versinya`);
     return delay(undefined);
   },
 
@@ -245,7 +268,7 @@ export const mockStore = {
       document_id: id,
       version_number: versionNumber,
       s3_file_key: `pending-upload/${uuid()}.${input.extension ?? doc.extension}`,
-      uploaded_by: OWNER,
+      uploaded_by: getMockActor().id,
       changelog: input.changelog ?? null,
       created_at: new Date().toISOString(),
     });
@@ -255,6 +278,10 @@ export const mockStore = {
     doc.status = "PENDING_REVIEW";
     doc.updated_at = new Date().toISOString();
     save(data);
+    recordActivity(
+      "UPLOAD_VERSION",
+      `Mengunggah versi ${versionNumber} dokumen "${doc.title}"${input.changelog ? ` — ${input.changelog}` : ""}`,
+    );
     return delay(doc);
   },
 };

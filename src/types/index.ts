@@ -79,11 +79,32 @@ export interface ActivityLog {
   user?: UserSummary;
 }
 
+/** Ringkasan dokumen pada relasi share (bentuk respons GET /shares/shared-with-me). */
+export interface DocumentSummary {
+  id: string;
+  title: string;
+  extension: string;
+  status: DocumentStatus;
+  current_version: number;
+  updated_at: string;
+}
+
+/** Satu entri "Dibagikan ke Saya" — share + ringkasan dokumennya. */
+export interface SharedWithMeItem extends DocumentShare {
+  document: DocumentSummary;
+}
+
 export interface Pagination {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
+}
+
+/** Respons GET /activity-logs (paginated). */
+export interface ActivityLogPage {
+  logs: ActivityLog[];
+  pagination: Pagination;
 }
 
 export interface FolderContents {
