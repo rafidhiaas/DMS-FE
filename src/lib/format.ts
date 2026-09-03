@@ -37,18 +37,18 @@ export const STATUS_META: Record<
   DocumentStatus,
   { label: string; className: string }
 > = {
-  DRAFT: { label: "Draft", className: "bg-muted text-muted-foreground" },
+  DRAFT: { label: "Draft", className: "border-rule text-muted-foreground" },
   PENDING_REVIEW: {
     label: "Menunggu Review",
-    className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+    className: "border-warn/60 text-warn",
   },
   APPROVED: {
     label: "Disetujui",
-    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+    className: "border-ok/60 text-ok",
   },
   ARCHIVED: {
     label: "Diarsipkan",
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    className: "border-rule text-muted-foreground",
   },
 };
 
@@ -60,17 +60,17 @@ export const ACCESS_LEVEL_META: Record<
   VIEWER: {
     label: "Viewer",
     description: "Hanya pratinjau — tidak bisa mengunduh berkas.",
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    className: "border-rule text-muted-foreground",
   },
   DOWNLOADER: {
     label: "Downloader",
     description: "Bisa melihat dan mengunduh berkas asli.",
-    className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
+    className: "border-info/60 text-info",
   },
   EDITOR: {
     label: "Editor",
     description: "Bisa mengunggah versi baru dan mengubah judul.",
-    className: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+    className: "border-primary/60 text-primary",
   },
 };
 
@@ -120,18 +120,18 @@ const ACTION_LABELS: Record<AuditAction, string> = {
 export function actionMeta(action: string): { label: string; className: string } {
   const label = ACTION_LABELS[action as AuditAction] ?? action;
   if (action === "DELETE_FOLDER" || action === "DELETE_DOCUMENT" || action === "REVOKE_SHARE" || action === "LOGIN_FAILED") {
-    return { label, className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" };
+    return { label, className: "border-destructive/50 text-destructive" };
   }
   if (action.startsWith("CREATE") || action === "UPLOAD_VERSION") {
-    return { label, className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" };
+    return { label, className: "border-ok/60 text-ok" };
   }
   if (action.startsWith("SHARE") || action === "UPDATE_SHARE_ACCESS") {
-    return { label, className: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300" };
+    return { label, className: "border-primary/60 text-primary" };
   }
   if (action === "LOGIN" || action === "LOGOUT") {
-    return { label, className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" };
+    return { label, className: "border-info/60 text-info" };
   }
-  return { label, className: "bg-muted text-muted-foreground" };
+  return { label, className: "border-rule text-muted-foreground" };
 }
 
 /** Ekstensi berkas yang didukung backend (whitelist). */
