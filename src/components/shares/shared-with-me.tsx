@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, ExternalLink, Inbox, Lock } from "lucide-react";
+import { Download, ExternalLink, Lock } from "lucide-react";
 import { useSharedWithMe } from "@/hooks/use-shares";
 import { downloadDocument } from "@/lib/download";
 import { formatDate, ACCESS_LEVEL_META, STATUS_META } from "@/lib/format";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileIcon } from "@/components/folders/file-icon";
+import { EmptyState } from "@/components/empty-state";
 import {
   Table,
   TableBody,
@@ -37,9 +38,11 @@ export function SharedWithMe() {
 
   if (shared.isError) {
     return (
-      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
-        Gagal memuat dokumen yang dibagikan. Coba muat ulang halaman.
-      </div>
+      <EmptyState
+        tone="destructive"
+        title="Gagal memuat dokumen yang dibagikan"
+        description="Coba muat ulang halaman."
+      />
     );
   }
 
@@ -47,15 +50,10 @@ export function SharedWithMe() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-center">
-        <Inbox className="size-10 text-muted-foreground" />
-        <div>
-          <p className="font-medium">Belum ada dokumen dibagikan</p>
-          <p className="text-sm text-muted-foreground">
-            Dokumen yang dibagikan rekan kerja akan muncul di sini.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        title="Belum ada dokumen dibagikan"
+        description="Dokumen yang dibagikan rekan kerja akan muncul di sini."
+      />
     );
   }
 
@@ -74,7 +72,7 @@ export function SharedWithMe() {
   }
 
   return (
-    <div className="rounded-xl border bg-card">
+    <div className="rounded-lg border border-rule bg-card">
       <Table>
         <TableHeader>
           <TableRow>

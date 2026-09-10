@@ -50,6 +50,8 @@ import {
 import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
 import { ShareDialog } from "@/components/shares/share-dialog";
+import { ShareLinkPopover } from "@/components/shares/share-link-popover";
+import { PageHeader } from "@/components/page-header";
 
 export function DocumentDetail({
   documentId,
@@ -150,28 +152,33 @@ export function DocumentDetail({
         Kembali ke folder “{doc.folder.name}”
       </Link>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start gap-4 rounded-xl border bg-card p-5">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted">
-          <FileIcon extension={doc.extension} className="size-7" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{doc.title}</h1>
+      {/* Kop dokumen — pola PageHeader agar seragam dengan halaman lain. */}
+      <PageHeader
+        eyebrow={`Dokumen · ${doc.folder.name}`}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-muted align-middle">
+              <FileIcon extension={doc.extension} className="size-5" />
+            </span>
+            <span className="min-w-0 break-words">{doc.title}</span>
+          </span>
+        }
+        description={
+          <span className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className={status.className}>
               {status.label}
             </Badge>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="uppercase">{doc.extension}</span>
+            <span className="font-mono text-[12px] uppercase">{doc.extension}</span>
             <span>·</span>
             <span>{formatBytes(doc.size_bytes)}</span>
             <span>·</span>
             <span>Versi {doc.current_version}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+            <span>·</span>
+            <span>Diperbarui {formatDateTime(doc.updated_at)}</span>
+          </span>
+        }
+        actions={
+          <><div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={handleDownload}>
             <Download className="size-4" />
             Unduh
@@ -182,6 +189,7 @@ export function DocumentDetail({
                 <Share2 className="size-4" />
                 Bagikan
               </Button>
+              <ShareLinkPopover documentId={documentId} />
               <Button onClick={() => setVersionOpen(true)}>
                 <UploadCloud className="size-4" />
                 Versi Baru
@@ -214,8 +222,9 @@ export function DocumentDetail({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </div>
-      </div>
+        </div></>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Preview */}

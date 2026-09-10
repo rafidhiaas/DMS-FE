@@ -1,4 +1,4 @@
-import type { AccessLevel, DocumentStatus } from "@/types";
+import type { AccessLevel, DocumentStatus, Role } from "@/types";
 
 /** Ubah ukuran byte → format terbaca (KB, MB, GB). */
 export function formatBytes(bytes: number | string, decimals = 1): string {
@@ -52,6 +52,14 @@ export const STATUS_META: Record<
   },
 };
 
+/** Warna stempel peran — memakai token tema, bukan warna Tailwind mentah. */
+export const ROLE_BADGE_CLASS: Record<Role, string> = {
+  SUPER_ADMIN: "border-destructive/50 text-destructive",
+  COMPANY_ADMIN: "border-primary/60 text-primary",
+  AUDITOR: "border-info/60 text-info",
+  EMPLOYEE: "border-rule text-muted-foreground",
+};
+
 /** Label & deskripsi untuk level akses berbagi dokumen. */
 export const ACCESS_LEVEL_META: Record<
   AccessLevel,
@@ -94,6 +102,10 @@ export const AUDIT_ACTIONS = [
   "SHARE_DOCUMENT",
   "UPDATE_SHARE_ACCESS",
   "REVOKE_SHARE",
+  // Tautan publik — action pilihan FE, belum ada di backend (lihat backend-gaps).
+  "CREATE_SHARE_LINK",
+  "REVOKE_SHARE_LINK",
+  "ACCESS_SHARE_LINK",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -114,24 +126,52 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   SHARE_DOCUMENT: "Bagikan Dokumen",
   UPDATE_SHARE_ACCESS: "Ubah Akses",
   REVOKE_SHARE: "Cabut Akses",
+  CREATE_SHARE_LINK: "Buat Tautan Publik",
+  REVOKE_SHARE_LINK: "Cabut Tautan Publik",
+  ACCESS_SHARE_LINK: "Akses via Tautan",
 };
 
 /** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */
 export function actionMeta(action: string): { label: string; className: string } {
   const label = ACTION_LABELS[action as AuditAction] ?? action;
-  if (action === "DELETE_FOLDER" || action === "DELETE_DOCUMENT" || action === "REVOKE_SHARE" || action === "LOGIN_FAILED") {
+  if (
+    action === "DELETE_FOLDER" ||
+    action === "DELETE_DOCUMENT" ||
+    action === "REVOKE_SHARE" ||
+    action === "REVOKE_SHARE_LINK" ||
+    action === "LOGIN_FAILED"
+  ) {
     return { label, className: "border-destructive/50 text-destructive" };
+  }
+  if (action.startsWith("SHARE") || action.endsWith("SHARE_LINK") || action === "UPDATE_SHARE_ACCESS") {
+    return { label, className: "border-primary/60 text-primary" };
   }
   if (action.startsWith("CREATE") || action === "UPLOAD_VERSION") {
     return { label, className: "border-ok/60 text-ok" };
-  }
-  if (action.startsWith("SHARE") || action === "UPDATE_SHARE_ACCESS") {
-    return { label, className: "border-primary/60 text-primary" };
   }
   if (action === "LOGIN" || action === "LOGOUT") {
     return { label, className: "border-info/60 text-info" };
   }
   return { label, className: "border-rule text-muted-foreground" };
+}
+
+/** Pilihan masa berlaku tautan publik (hari; null = tanpa batas). */
+export const SHARE_LINK_EXPIRY_OPTIONS: ReadonlyArray<{ value: string; label: string; days: number | null }> = [
+  { value: "1", label: "1 hari", days: 1 },
+  { value: "7", label: "7 hari", days: 7 },
+  { value: "30", label: "30 hari", days: 30 },
+  { value: "never", label: "Tanpa batas", days: null },
+];
+
+/** Sisa waktu tautan dalam bahasa manusia; null jika tanpa batas. */
+export function formatRemaining(expiresAt: string | null): string {
+  if (!expiresAt) return "Tanpa batas";
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "Kedaluwarsa";
+  const hours = Math.ceil(ms / 3_600_000);
+  if (hours < 24) return `${hours} jam lagi`;
+  const days = Math.ceil(hours / 24);
+  return `${days} hari lagi`;
 }
 
 /** Ekstensi berkas yang didukung backend (whitelist). */

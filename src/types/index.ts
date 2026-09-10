@@ -112,3 +112,42 @@ export interface FolderContents {
   subFolders: Folder[];
   documents: DocumentItem[];
 }
+
+/** Akses yang bisa diberikan lewat tautan publik (tanpa login). */
+export type ShareLinkAccess = "VIEWER" | "DOWNLOADER";
+
+/**
+ * Tautan publik berbatas waktu ke satu dokumen — sesuai spec ShareLink.
+ * Backend belum menyediakan endpoint-nya; FE memakai mock store dulu.
+ */
+export interface ShareLink {
+  id: string;
+  document_id: string;
+  token: string;
+  access: ShareLinkAccess;
+  /** null = tanpa batas waktu. */
+  expires_at: string | null;
+  created_by: string;
+  created_at: string;
+  /** Berapa kali tautan dibuka (untuk audit). */
+  access_count: number;
+}
+
+/** Data yang ditampilkan halaman publik /share/[token]. */
+export interface PublicShareView {
+  link: ShareLink;
+  document: DocumentSummary & { size_bytes: string; folder_name: string };
+}
+
+/** Hasil pencarian global (folder + dokumen). */
+export type SearchResult =
+  | { kind: "folder"; id: string; name: string; path: string }
+  | {
+      kind: "document";
+      id: string;
+      title: string;
+      extension: string;
+      status: DocumentStatus;
+      folder_name: string;
+      updated_at: string;
+    };

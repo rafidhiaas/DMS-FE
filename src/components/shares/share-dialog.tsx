@@ -10,8 +10,9 @@ import {
   useRevokeShare,
 } from "@/hooks/use-shares";
 import { useUsers } from "@/hooks/use-users";
-import { ACCESS_LEVEL_META } from "@/lib/format";
+import { ACCESS_LEVEL_META, ROLE_BADGE_CLASS } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { AccessLevel, DocumentShare } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,8 @@ import {
 } from "@/components/ui/select";
 
 const ACCESS_LEVELS: AccessLevel[] = ["VIEWER", "DOWNLOADER", "EDITOR"];
+/* `items` agar trigger Select menampilkan label, bukan nilai mentah (Base UI). */
+const LEVEL_ITEMS = ACCESS_LEVELS.map((l) => ({ value: l, label: ACCESS_LEVEL_META[l].label }));
 
 /** Dialog kelola akses berbagi satu dokumen: tambah penerima, ubah level, cabut. */
 export function ShareDialog({
@@ -59,6 +62,7 @@ export function ShareDialog({
   const [level, setLevel] = useState<AccessLevel>("VIEWER");
 
   const candidates = (users.data ?? []).filter((u) => u.id !== currentUserId);
+  const userItems = candidates.map((u) => ({ value: u.id, label: `${u.name} · ${u.email}` }));
 
   function handleShare() {
     if (!targetUserId) return;
@@ -92,6 +96,7 @@ export function ShareDialog({
               <Label>Pengguna</Label>
               <Select
                 value={targetUserId}
+                items={userItems}
                 onValueChange={(v) => setTargetUserId(v as string | null)}
               >
                 <SelectTrigger className="w-full">
@@ -108,7 +113,7 @@ export function ShareDialog({
             </div>
             <div className="space-y-2">
               <Label>Level Akses</Label>
-              <Select value={level} onValueChange={(v) => setLevel(v as AccessLevel)}>
+              <Select value={level} items={LEVEL_ITEMS} onValueChange={(v) => setLevel(v as AccessLevel)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -205,12 +210,16 @@ function ShareRow({
         </p>
       </div>
       {share.user && (
-        <Badge variant="outline" className="hidden shrink-0 sm:inline-flex">
+        <Badge
+          variant="secondary"
+          className={cn("hidden shrink-0 sm:inline-flex", ROLE_BADGE_CLASS[share.user.role])}
+        >
           {ROLE_LABELS[share.user.role]}
         </Badge>
       )}
       <Select
         value={share.access_level}
+        items={LEVEL_ITEMS}
         onValueChange={(v) => onChangeLevel(v as AccessLevel)}
       >
         <SelectTrigger size="sm" disabled={pending} className="shrink-0">

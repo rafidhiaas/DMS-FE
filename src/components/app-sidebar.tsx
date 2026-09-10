@@ -7,6 +7,8 @@ import { ROLE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types";
 import { LogoutButton } from "@/components/logout-button";
+import { GlobalSearch } from "@/components/global-search";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface SidebarUser {
   name: string;
@@ -80,7 +82,7 @@ export function UserBlock({ user }: { user: SidebarUser }) {
       <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
       <p className="truncate font-mono text-[11px] text-sidebar-muted">{user.email}</p>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="rounded-sm border border-sidebar-primary/50 px-1.5 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-sidebar-primary">
+        <span className="rounded-sm border border-sidebar-primary/50 px-1.5 py-0.5 font-mono text-[10.5px] whitespace-nowrap uppercase tracking-[0.08em] text-sidebar-primary">
           {ROLE_LABELS[user.role]}
         </span>
         <LogoutButton tone="sidebar" />
@@ -94,6 +96,13 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
       <div className="border-b border-sidebar-border px-6 pt-7 pb-6">
         <Wordmark />
+      </div>
+
+      <div className="flex items-center gap-2 px-3 pt-4">
+        <div className="min-w-0 flex-1">
+          <GlobalSearch tone="sidebar" />
+        </div>
+        <ThemeToggle tone="sidebar" className="size-9" />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-5">

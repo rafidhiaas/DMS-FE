@@ -32,6 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+/* `items` agar trigger Select menampilkan ".pdf", bukan "pdf" (Base UI). */
+const EXTENSION_ITEMS = ALLOWED_EXTENSIONS.map((ext) => ({ value: ext, label: `.${ext}` }));
+
 /* ------------------------------ Buat Folder ------------------------------ */
 
 export function CreateFolderDialog({
@@ -150,6 +153,7 @@ export function CreateDocumentDialog({
               <Label>Ekstensi</Label>
               <Select
                 value={extension}
+                items={EXTENSION_ITEMS}
                 onValueChange={(v) => setExtension(v as AllowedExtension)}
               >
                 <SelectTrigger>

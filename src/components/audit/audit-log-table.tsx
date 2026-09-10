@@ -9,13 +9,13 @@ import {
   ChevronsRight,
   FileDown,
   Loader2,
-  ScrollText,
 } from "lucide-react";
 import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
+  type RowData,
 } from "@tanstack/react-table";
 import { useActivityLogs } from "@/hooks/use-audit-logs";
 import { fetchActivityLogsCsv } from "@/lib/api/activity-logs";
@@ -23,7 +23,17 @@ import { triggerBrowserDownload } from "@/lib/download";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatDateTime, actionMeta, AUDIT_ACTIONS } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { ActivityLog, Role } from "@/types";
+import { EmptyState } from "@/components/empty-state";
+
+/* Kolom bisa membawa className (mis. sembunyikan di layar sempit). */
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string;
+  }
+}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +57,12 @@ const PAGE_SIZE = 10;
 const ALL_ACTIONS = "__ALL__";
 
 const columnHelper = createColumnHelper<ActivityLog>();
+
+/* `items` agar trigger Select menampilkan label, bukan nilai mentah (Base UI). */
+const ACTION_ITEMS = [
+  { value: ALL_ACTIONS, label: "Semua aksi" },
+  ...AUDIT_ACTIONS.map((a) => ({ value: a, label: actionMeta(a).label })),
+];
 
 const columns = [
   columnHelper.accessor("created_at", {
@@ -86,13 +102,14 @@ const columns = [
   columnHelper.accessor("details", {
     header: "Detail",
     cell: (info) => (
-      <span className="block max-w-96 truncate" title={info.getValue()}>
+      <span className="block max-w-72 truncate xl:max-w-96" title={info.getValue()}>
         {info.getValue()}
       </span>
     ),
   }),
   columnHelper.accessor("ip_address", {
     header: "IP",
+    meta: { className: "hidden 2xl:table-cell" },
     cell: (info) => (
       <span className="font-mono text-xs text-muted-foreground">{info.getValue()}</span>
     ),
@@ -145,6 +162,7 @@ export function AuditLogTable({ role }: { role: Role }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Select
           value={action}
+          items={ACTION_ITEMS}
           onValueChange={(v) => {
             setAction(v as string);
             setPage(1);
@@ -154,10 +172,9 @@ export function AuditLogTable({ role }: { role: Role }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_ACTIONS}>Semua aksi</SelectItem>
-            {AUDIT_ACTIONS.map((a) => (
-              <SelectItem key={a} value={a}>
-                {actionMeta(a).label}
+            {ACTION_ITEMS.map((it) => (
+              <SelectItem key={it.value} value={it.value}>
+                {it.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -183,21 +200,18 @@ export function AuditLogTable({ role }: { role: Role }) {
           ))}
         </div>
       ) : logsQuery.isError ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
-          Gagal memuat audit log. Coba muat ulang halaman.
-        </div>
+        <EmptyState
+          tone="destructive"
+          title="Gagal memuat audit log"
+          description="Coba muat ulang halaman."
+        />
       ) : logs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-center">
-          <ScrollText className="size-10 text-muted-foreground" />
-          <div>
-            <p className="font-medium">Tidak ada aktivitas</p>
-            <p className="text-sm text-muted-foreground">
-              Tidak ada log yang cocok dengan filter saat ini.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          title="Tidak ada aktivitas"
+          description="Tidak ada log yang cocok dengan filter saat ini."
+        />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-lg border border-rule bg-card">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((hg) => (
@@ -205,7 +219,7 @@ export function AuditLogTable({ role }: { role: Role }) {
                   {hg.headers.map((header, i) => (
                     <TableHead
                       key={header.id}
-                      className={i === 0 ? "pl-4" : undefined}
+                      className={cn(i === 0 && "pl-4", header.column.columnDef.meta?.className)}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
@@ -217,7 +231,10 @@ export function AuditLogTable({ role }: { role: Role }) {
               {table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell, i) => (
-                    <TableCell key={cell.id} className={i === 0 ? "pl-4" : undefined}>
+                    <TableCell
+                      key={cell.id}
+                      className={cn(i === 0 && "pl-4", cell.column.columnDef.meta?.className)}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

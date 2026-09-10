@@ -9,5 +9,6 @@ export default async function FolderPage({
   const { id } = await params;
   const user = await getServerUser();
   if (!user) return null;
-  return <FolderBrowser folderId={id} role={user.role} />;
+  // key: reset state daftar (filter, seleksi) saat berpindah folder.
+  return <FolderBrowser key={id} folderId={id} role={user.role} />;
 }

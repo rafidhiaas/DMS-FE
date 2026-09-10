@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/session";
+import { PageHeader } from "@/components/page-header";
 import { UsersTable } from "@/components/users/users-table";
 
 export const metadata: Metadata = { title: "Manajemen User" };
@@ -15,12 +16,11 @@ export default async function UsersPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Manajemen User</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Daftar pengguna Secure DMS dan perannya.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Administrasi"
+        title="Manajemen User"
+        description="Daftar pengguna Secure DMS dan perannya."
+      />
       <UsersTable />
     </div>
   );
