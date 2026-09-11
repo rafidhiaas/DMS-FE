@@ -16,6 +16,7 @@ import { recordActivity } from "@/lib/mocks/audit-store";
 import { getMockActor } from "@/lib/mocks/actor";
 import { putFile, deleteFiles } from "@/lib/mocks/file-store";
 import { indexFileContent, removeContent } from "@/lib/mocks/content-store";
+import { evaluateWorkflows } from "@/lib/mocks/workflow-store";
 
 /**
  * MOCK data store untuk Folder & Dokumen — persist di localStorage browser.
@@ -171,6 +172,23 @@ export function peekDocuments(): DocumentItem[] {
 /** Baca daftar folder mentah secara sinkron (dipakai statistik dashboard mock). */
 export function peekFolders(): Folder[] {
   return load().folders;
+}
+
+/** Terapkan aturan otomatisasi ke dokumen (mutasi in-place); kembalikan nama aturan yang jalan. */
+function runWorkflows(
+  trigger: "upload" | "status_change",
+  doc: DocumentItem,
+  ctx: { newStatus?: DocumentStatus } = {},
+): string[] {
+  const out = evaluateWorkflows(trigger, doc, ctx);
+  if (out.applied.length === 0) return [];
+  const tags = new Set(doc.tag_ids ?? []);
+  for (const t of out.add_tag_ids) tags.add(t);
+  doc.tag_ids = Array.from(tags);
+  if (out.document_type_id !== undefined) doc.document_type_id = out.document_type_id;
+  if (out.correspondent_id !== undefined) doc.correspondent_id = out.correspondent_id;
+  if (out.status && out.status !== doc.status) doc.status = out.status;
+  return out.applied;
 }
 
 /** Dilempar createDocument bila berkas identik sudah ada (pola dedupe checksum Paperless). */
@@ -385,6 +403,7 @@ export const mockStore = {
       custom_fields: {},
     };
     const versionId = uuid();
+    const applied = runWorkflows("upload", doc);
     data.documents.push(doc);
     data.versions.push({
       id: versionId,
@@ -402,6 +421,11 @@ export const mockStore = {
       await indexFileContent(doc.id, input.file);
     }
     recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`, { document_id: doc.id });
+    if (applied.length > 0) {
+      recordActivity("WORKFLOW_APPLIED", `Otomatisasi "${applied.join('", "')}" diterapkan pada "${doc.title}"`, {
+        document_id: doc.id,
+      });
+    }
     return delay(doc);
   },
 
@@ -537,12 +561,18 @@ export const mockStore = {
     if (!rule) throw new Error(`Perubahan status ${doc.status} → ${status} tidak diizinkan untuk peran Anda.`);
     doc.status = status;
     doc.updated_at = new Date().toISOString();
+    const applied = runWorkflows("status_change", doc, { newStatus: status });
     save(data);
     recordActivity(
       rule.audit,
       `${rule.label} dokumen "${doc.title}"${note ? ` — ${note}` : ""}`,
       { document_id: id },
     );
+    if (applied.length > 0) {
+      recordActivity("WORKFLOW_APPLIED", `Otomatisasi "${applied.join('", "')}" diterapkan pada "${doc.title}"`, {
+        document_id: id,
+      });
+    }
     return delay(doc);
   },
 

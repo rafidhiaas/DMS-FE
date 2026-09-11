@@ -49,6 +49,7 @@ function seed(): MetaShape {
       { id: "seed-tag-kontrak", name: "Kontrak", color: "#2563eb", created_at: nowIso(40) },
       { id: "seed-tag-rahasia", name: "Rahasia", color: "#7c3aed", created_at: nowIso(30) },
       { id: "seed-tag-2025", name: "2025", color: "#64748b", created_at: nowIso(20) },
+      { id: "seed-tag-baru", name: "Baru", color: "#ea580c", created_at: nowIso(10) },
     ],
     types: [
       { id: "seed-type-laporan", name: "Laporan", created_at: nowIso(40) },
@@ -84,10 +85,16 @@ function load(): MetaShape {
   }
   try {
     const data = JSON.parse(raw) as MetaShape;
+    let dirty = false;
     if (!data.fields) {
       data.fields = seedFields(); // migrasi: bidang khusus ditambahkan belakangan
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      dirty = true;
     }
+    if (!data.tags.some((t) => t.id === "seed-tag-baru")) {
+      data.tags.push({ id: "seed-tag-baru", name: "Baru", color: "#ea580c", created_at: new Date().toISOString() });
+      dirty = true;
+    }
+    if (dirty) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     return data;
   } catch {
     const initial = seed();

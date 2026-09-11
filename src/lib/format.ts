@@ -127,6 +127,8 @@ export const AUDIT_ACTIONS = [
   "DEACTIVATE_USER",
   "ACTIVATE_USER",
   "DELETE_USER",
+  "WORKFLOW_APPLIED",
+  "UPDATE_WORKFLOW",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -170,6 +172,8 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DEACTIVATE_USER: "Nonaktifkan Pengguna",
   ACTIVATE_USER: "Aktifkan Pengguna",
   DELETE_USER: "Hapus Pengguna",
+  WORKFLOW_APPLIED: "Otomatisasi Berjalan",
+  UPDATE_WORKFLOW: "Ubah Otomatisasi",
 };
 
 /** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */

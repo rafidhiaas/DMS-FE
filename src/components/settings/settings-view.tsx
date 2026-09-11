@@ -232,6 +232,8 @@ const MOCK_KEYS = [
   "dms_mock_notes_v1",
   "dms_mock_meta_v1",
   "dms_mock_users_v1",
+  "dms_mock_workflows_v1",
+  "dms_mock_content_v1",
   "dms_saved_views_v1",
   "dms_recent_docs_v1",
 ];

@@ -34,7 +34,7 @@ import { MetaFormDialog } from "@/components/metadata/metadata-manager";
 const NONE = "__none__";
 
 /** Select nullable (Base UI butuh `items` agar label tampil di trigger). */
-function NullableSelect({
+export function NullableSelect({
   value,
   onChange,
   items,
@@ -43,7 +43,7 @@ function NullableSelect({
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
-  items: MetaItem[];
+  items: Array<Pick<MetaItem, "id" | "name">>;
   placeholder: string;
   /** Opsi tambahan di atas "— Tidak ada —" (dipakai bulk: "Biarkan"). */
   extra?: { value: string; label: string };
@@ -70,7 +70,7 @@ function NullableSelect({
 }
 
 /** Daftar checkbox tag + tombol buat tag baru inline. */
-function TagPicker({
+export function TagPicker({
   selected,
   onToggle,
   label = "Tag",

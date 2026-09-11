@@ -250,3 +250,27 @@ export type SearchResult =
       /** Cuplikan isi berkas yang cocok (pencarian konten). */
       snippet?: string;
     };
+
+/* ---------------------------- Otomatisasi ------------------------------ */
+export type WorkflowTrigger = "upload" | "status_change";
+export interface WorkflowRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
+  trigger: WorkflowTrigger;
+  /** Hanya untuk trigger status_change; null = status apa pun. */
+  trigger_status: DocumentStatus | null;
+  match_folder_id: string | null;
+  match_extensions: string[];
+  match_title_contains: string;
+  assign_tag_ids: string[];
+  assign_type_id: string | null;
+  assign_correspondent_id: string | null;
+  /** Hanya untuk trigger upload. */
+  assign_status: DocumentStatus | null;
+  run_count: number;
+  last_run_at: string | null;
+  created_at: string;
+}
+export type WorkflowRuleInput = Omit<WorkflowRule, "id" | "order" | "run_count" | "last_run_at" | "created_at">;

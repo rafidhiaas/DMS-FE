@@ -8,6 +8,7 @@ import {
   Trash2,
   Tags,
   Settings,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/types";
@@ -44,6 +45,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Sampah",
     href: "/trash",
     icon: Trash2,
+    roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
+  },
+  {
+    label: "Otomatisasi",
+    href: "/workflows",
+    icon: Workflow,
     roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
   },
   { label: "Pengaturan", href: "/settings", icon: Settings, roles: ALL },

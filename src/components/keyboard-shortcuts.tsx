@@ -24,6 +24,7 @@ const GO_KEYS: Record<string, string> = {
   u: "/users",
   t: "/trash",
   p: "/settings",
+  w: "/workflows",
 };
 
 function isTyping(target: EventTarget | null): boolean {
