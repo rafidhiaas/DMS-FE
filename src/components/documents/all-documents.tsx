@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/page-header";
 import { FolderToolbar } from "@/components/folders/folder-toolbar";
 import { DocumentTable, type ItemHandlers } from "@/components/folders/document-table";
 import { BulkActionBar } from "@/components/folders/bulk-action-bar";
-import { DocumentCard } from "@/components/folders/folder-browser";
+import { DocumentCard, DocumentCardLarge } from "@/components/folders/document-cards";
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { SaveViewDialog } from "@/components/folders/save-view-dialog";
 import { BulkMetadataDialog } from "@/components/folders/edit-metadata-dialog";
@@ -88,7 +88,10 @@ export function AllDocuments({ role }: { role: Role }) {
     const allOn = visible.length > 0 && visible.every((id) => selectedSet.has(id));
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const id of visible) allOn ? next.delete(id) : next.add(id);
+      for (const id of visible) {
+        if (allOn) next.delete(id);
+        else next.add(id);
+      }
       return next;
     });
   }
@@ -285,6 +288,26 @@ export function AllDocuments({ role }: { role: Role }) {
           handlers={handlers}
           showFolder
         />
+      ) : view === "large" ? (
+        <div className="space-y-3">
+          {docs.map((doc) => (
+            <DocumentCardLarge
+              key={doc.id}
+              doc={doc}
+              canWrite={canWrite}
+              canDelete={canDelete}
+              selectable
+              selected={selectedSet.has(doc.id)}
+              anySelected={selectedIds.length > 0}
+              onToggle={() => toggleSelect(doc.id)}
+              onOpen={() => handlers.onOpen("document", doc.id)}
+              onRename={() => handlers.onRename("document", doc.id, doc.title)}
+              onMove={() => handlers.onMove("document", doc.id, doc.title)}
+              onDelete={() => handlers.onDelete("document", doc.id, doc.title)}
+              folderName={doc.folder_name}
+            />
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((doc) => (

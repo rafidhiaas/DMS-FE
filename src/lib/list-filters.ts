@@ -6,9 +6,9 @@ import type { DocumentItem, DocumentStatus, Folder } from "@/types";
  */
 
 export type SortKey = "name" | "updated" | "size" | "date";
-export type ViewMode = "grid" | "table";
+export type ViewMode = "grid" | "large" | "table";
 
-export const VIEW_MODES: readonly ViewMode[] = ["grid", "table"];
+export const VIEW_MODES: readonly ViewMode[] = ["grid", "large", "table"];
 
 export interface ListFilters {
   query: string;

@@ -247,6 +247,7 @@ export const ALLOWED_EXTENSIONS = [
   "jpeg",
   "txt",
   "csv",
+  "md",
 ] as const;
 
 export type AllowedExtension = (typeof ALLOWED_EXTENSIONS)[number];

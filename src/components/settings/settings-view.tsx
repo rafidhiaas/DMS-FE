@@ -101,6 +101,10 @@ function AppearanceSection() {
             <LayoutGrid className="size-4" />
             Kartu
           </Choice>
+          <Choice active={viewMode === "large"} onClick={() => setViewMode("large")}>
+            <LayoutGrid className="size-4" />
+            Kartu besar
+          </Choice>
           <Choice active={viewMode === "table"} onClick={() => setViewMode("table")}>
             <List className="size-4" />
             Tabel

@@ -9,6 +9,7 @@ import {
   CircleDot,
   FileType,
   LayoutGrid,
+  LayoutList,
   List,
   Search,
   Tag,
@@ -302,6 +303,9 @@ export function FolderToolbar({
       >
         <ViewButton active={view === "grid"} onClick={() => onViewChange("grid")} label="Kartu">
           <LayoutGrid className="size-4" />
+        </ViewButton>
+        <ViewButton active={view === "large"} onClick={() => onViewChange("large")} label="Kartu besar">
+          <LayoutList className="size-4" />
         </ViewButton>
         <ViewButton active={view === "table"} onClick={() => onViewChange("table")} label="Tabel">
           <List className="size-4" />

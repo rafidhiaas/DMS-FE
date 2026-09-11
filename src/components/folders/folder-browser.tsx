@@ -21,7 +21,7 @@ import {
 import { useLocalPref } from "@/hooks/use-local-pref";
 import { getSavedView, useSavedViews } from "@/lib/saved-views";
 import { downloadDocument } from "@/lib/download";
-import { formatBytes, formatDate, STATUS_META } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import {
   applyDocumentFilters,
   applyFolderFilters,
@@ -33,23 +33,20 @@ import {
   type ViewMode,
 } from "@/lib/list-filters";
 import { cn } from "@/lib/utils";
-import type { Role, Folder, DocumentItem } from "@/types";
+import type { Role, Folder } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/folders/breadcrumbs";
-import { FileIcon } from "@/components/folders/file-icon";
 import { ItemActionsMenu } from "@/components/folders/item-actions-menu";
 import { FolderToolbar } from "@/components/folders/folder-toolbar";
 import { DocumentTable, type ItemHandlers } from "@/components/folders/document-table";
 import { BulkActionBar } from "@/components/folders/bulk-action-bar";
+import { DocumentCard, DocumentCardLarge } from "@/components/folders/document-cards";
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { SaveViewDialog } from "@/components/folders/save-view-dialog";
 import { BulkMetadataDialog } from "@/components/folders/edit-metadata-dialog";
-import { DocumentTags } from "@/components/metadata/tag-chip";
 import {
   CreateFolderDialog,
   CreateDocumentDialog,
@@ -576,6 +573,41 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
           onToggleAll={toggleAllVisible}
           handlers={handlers}
         />
+      ) : view === "large" ? (
+        <div className="space-y-3">
+          {folders.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {folders.map((folder) => (
+                <FolderCard
+                  key={folder.id}
+                  folder={folder}
+                  canWrite={canWrite}
+                  canDelete={canDelete}
+                  onOpen={() => handlers.onOpen("folder", folder.id)}
+                  onRename={() => handlers.onRename("folder", folder.id, folder.name)}
+                  onMove={() => handlers.onMove("folder", folder.id, folder.name)}
+                  onDelete={() => handlers.onDelete("folder", folder.id, folder.name)}
+                />
+              ))}
+            </div>
+          )}
+          {docs.map((doc) => (
+            <DocumentCardLarge
+              key={doc.id}
+              doc={doc}
+              canWrite={canWrite}
+              canDelete={canDelete}
+              selectable={selectable}
+              selected={selectedSet.has(doc.id)}
+              anySelected={selectedIds.length > 0}
+              onToggle={() => toggleSelect(doc.id)}
+              onOpen={() => handlers.onOpen("document", doc.id)}
+              onRename={() => handlers.onRename("document", doc.id, doc.title)}
+              onMove={() => handlers.onMove("document", doc.id, doc.title)}
+              onDelete={() => handlers.onDelete("document", doc.id, doc.title)}
+            />
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {folders.map((folder) => (
@@ -761,96 +793,6 @@ function FolderCard({
         onMove={onMove}
         onDelete={onDelete}
       />
-    </div>
-  );
-}
-
-export function DocumentCard({
-  doc,
-  canWrite,
-  canDelete,
-  selectable,
-  selected,
-  anySelected,
-  onToggle,
-  onOpen,
-  onRename,
-  onMove,
-  onDelete,
-  folderName,
-}: {
-  doc: DocumentItem;
-  /** Nama folder asal (daftar lintas folder). */
-  folderName?: string;
-  canWrite: boolean;
-  canDelete: boolean;
-  selectable: boolean;
-  selected: boolean;
-  anySelected: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
-  onRename: () => void;
-  onMove: () => void;
-  onDelete: () => void;
-}) {
-  const status = STATUS_META[doc.status];
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      data-selected={selected || undefined}
-      onClick={anySelected ? onToggle : onOpen}
-      onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className={cn(
-        "group relative flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring",
-        selected && "border-primary/60 bg-primary/5 hover:bg-primary/10",
-      )}
-    >
-      {selectable && (
-        <span
-          onClick={(e) => e.stopPropagation()}
-          className={cn(
-            "absolute top-2 left-2 transition-opacity",
-            selected || anySelected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-          )}
-        >
-          <Checkbox aria-label={`Pilih ${doc.title}`} checked={selected} onCheckedChange={onToggle} />
-        </span>
-      )}
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-        <FileIcon extension={doc.extension} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{doc.title}</p>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="uppercase">{doc.extension}</span>
-          <span>·</span>
-          <span>{formatBytes(doc.size_bytes)}</span>
-          <span>·</span>
-          <span>v{doc.current_version}</span>
-          {folderName && (
-            <>
-              <span>·</span>
-              <span className="truncate">{folderName}</span>
-            </>
-          )}
-        </div>
-        <DocumentTags tagIds={doc.tag_ids} className="mt-1.5" />
-      </div>
-      <div className="flex items-center gap-1">
-        <Badge variant="secondary" className={status.className}>
-          {status.label}
-        </Badge>
-        <ItemActionsMenu
-          canWrite={canWrite}
-          canDelete={canDelete}
-          openLabel="Buka detail"
-          onOpen={onOpen}
-          onRename={onRename}
-          onMove={onMove}
-          onDelete={onDelete}
-        />
-      </div>
     </div>
   );
 }
