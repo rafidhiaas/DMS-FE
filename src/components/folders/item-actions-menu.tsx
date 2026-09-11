@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, FolderInput, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ export function ItemActionsMenu({
   openLabel,
   onOpen,
   onRename,
+  onMove,
   onDelete,
 }: {
   canWrite: boolean;
@@ -25,6 +26,7 @@ export function ItemActionsMenu({
   openLabel: string;
   onOpen: () => void;
   onRename: () => void;
+  onMove?: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -36,7 +38,7 @@ export function ItemActionsMenu({
       >
         <MoreVertical className="size-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuContent align="end" className="min-w-44" onClick={(e) => e.stopPropagation()}>
         <DropdownMenuItem onClick={onOpen}>
           <ExternalLink className="size-4" />
           {openLabel}
@@ -45,6 +47,12 @@ export function ItemActionsMenu({
           <DropdownMenuItem onClick={onRename}>
             <Pencil className="size-4" />
             Ganti nama
+          </DropdownMenuItem>
+        )}
+        {canWrite && onMove && (
+          <DropdownMenuItem onClick={onMove}>
+            <FolderInput className="size-4" />
+            Pindahkan ke…
           </DropdownMenuItem>
         )}
         {canDelete && (

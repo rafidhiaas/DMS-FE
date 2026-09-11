@@ -35,6 +35,24 @@ export interface DocumentItem {
   status: DocumentStatus;
   created_at: string;
   updated_at: string;
+  /** Terisi bila dokumen berada di Sampah (soft delete — FE mock; backend belum punya). */
+  deleted_at?: string | null;
+}
+
+/** Entri halaman Sampah: dokumen + nama folder asal + jadwal pembersihan otomatis. */
+export interface TrashItem extends DocumentItem {
+  folder_name: string;
+  purge_at: string;
+}
+
+/** Catatan bebas pada dokumen (tab "Catatan" — meniru Notes Paperless). */
+export interface DocumentNote {
+  id: string;
+  document_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  user?: UserSummary;
 }
 
 export interface DocumentVersion {

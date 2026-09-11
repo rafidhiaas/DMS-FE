@@ -5,6 +5,7 @@ import * as documentsApi from "@/lib/api/documents";
 
 export const documentKeys = {
   detail: (id: string) => ["document", id] as const,
+  trash: ["trash"] as const,
 };
 
 export function useDocument(id: string) {
@@ -40,7 +41,68 @@ export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => documentsApi.deleteDocument(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["folder-contents"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: documentKeys.trash });
+    },
+  });
+}
+
+/* -------------------------------- Sampah -------------------------------- */
+
+/** Isi Sampah; `null` berarti backend belum mendukung soft delete. */
+export function useTrash() {
+  return useQuery({
+    queryKey: documentKeys.trash,
+    queryFn: documentsApi.fetchTrash,
+  });
+}
+
+function useInvalidateTrash() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: documentKeys.trash });
+    qc.invalidateQueries({ queryKey: ["folder-contents"] });
+    qc.invalidateQueries({ queryKey: ["dms-stats"] });
+  };
+}
+
+export function useRestoreDocument() {
+  const invalidate = useInvalidateTrash();
+  return useMutation({
+    mutationFn: (id: string) => documentsApi.restoreDocument(id),
+    onSuccess: invalidate,
+  });
+}
+
+export function usePurgeDocument() {
+  const invalidate = useInvalidateTrash();
+  return useMutation({
+    mutationFn: (id: string) => documentsApi.purgeDocument(id),
+    onSuccess: invalidate,
+  });
+}
+
+export function useEmptyTrash() {
+  const invalidate = useInvalidateTrash();
+  return useMutation({
+    mutationFn: () => documentsApi.emptyTrash(),
+    onSuccess: invalidate,
+  });
+}
+
+/* -------------------------------- Pindah -------------------------------- */
+
+export function useMoveDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, folder_id }: { id: string; folder_id: string }) =>
+      documentsApi.moveDocument(id, folder_id),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: ["document-history", id] });
+    },
   });
 }
 

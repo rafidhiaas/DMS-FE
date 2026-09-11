@@ -6,7 +6,17 @@ import * as foldersApi from "@/lib/api/folders";
 export const folderKeys = {
   contents: (folderId: string) => ["folder-contents", folderId] as const,
   path: (folderId: string) => ["folder-path", folderId] as const,
+  all: ["folders-all"] as const,
 };
+
+/** Seluruh folder untuk pemilih tujuan pindah (dimuat hanya saat dialog terbuka). */
+export function useAllFolders(enabled = true) {
+  return useQuery({
+    queryKey: folderKeys.all,
+    queryFn: foldersApi.fetchAllFolders,
+    enabled,
+  });
+}
 
 export function useFolderContents(folderId: string) {
   return useQuery({
@@ -28,7 +38,17 @@ function useInvalidateFolders() {
   return () => {
     qc.invalidateQueries({ queryKey: ["folder-contents"] });
     qc.invalidateQueries({ queryKey: ["folder-path"] });
+    qc.invalidateQueries({ queryKey: folderKeys.all });
   };
+}
+
+export function useMoveFolder() {
+  const invalidate = useInvalidateFolders();
+  return useMutation({
+    mutationFn: ({ id, parentId }: { id: string; parentId: string | null }) =>
+      foldersApi.moveFolder(id, parentId),
+    onSuccess: invalidate,
+  });
 }
 
 export function useCreateFolder() {

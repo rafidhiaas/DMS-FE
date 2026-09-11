@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Loader2, Trash2, X } from "lucide-react";
+import { Download, FolderInput, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -10,20 +10,24 @@ import { Button } from "@/components/ui/button";
 export function BulkActionBar({
   count,
   total,
+  canWrite,
   canDelete,
   busy,
   onSelectAll,
   onClear,
   onDownload,
+  onMove,
   onDelete,
 }: {
   count: number;
   total: number;
+  canWrite: boolean;
   canDelete: boolean;
   busy: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   onDownload: () => void;
+  onMove: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -46,6 +50,12 @@ export function BulkActionBar({
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
           Unduh
         </Button>
+        {canWrite && (
+          <Button variant="outline" size="sm" disabled={busy} onClick={onMove}>
+            <FolderInput className="size-3.5" />
+            Pindahkan
+          </Button>
+        )}
         {canDelete && (
           <Button variant="destructive" size="sm" disabled={busy} onClick={onDelete}>
             <Trash2 className="size-3.5" />

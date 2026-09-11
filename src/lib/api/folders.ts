@@ -42,3 +42,31 @@ export async function deleteFolder(id: string): Promise<void> {
   if (env.USE_MOCKS) return mockStore.deleteFolder(id);
   await api.delete(`/folders/${id}`);
 }
+
+/** Meniru PATCH /folders/:id/move (body: new_parent_folder_id, null = Root). */
+export async function moveFolder(id: string, newParentId: string | null): Promise<Folder> {
+  if (env.USE_MOCKS) return mockStore.moveFolder(id, newParentId);
+  const { data } = await api.patch<{ folder: Folder }>(`/folders/${id}/move`, {
+    new_parent_folder_id: newParentId,
+  });
+  return data.folder;
+}
+
+/**
+ * Seluruh folder (untuk pemilih "Pindahkan ke"). Backend belum punya endpoint
+ * list semua folder, jadi di mode backend kita telusuri dari root (BFS, maks 300).
+ */
+export async function fetchAllFolders(): Promise<Folder[]> {
+  if (env.USE_MOCKS) return mockStore.listFolders();
+  const out: Folder[] = [];
+  const queue: string[] = ["root"];
+  while (queue.length > 0 && out.length < 300) {
+    const id = queue.shift()!;
+    const { data } = await api.get<FolderContents>(`/folders/${id}`);
+    for (const f of data.subFolders) {
+      out.push(f);
+      queue.push(f.id);
+    }
+  }
+  return out;
+}

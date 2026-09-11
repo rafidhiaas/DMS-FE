@@ -106,6 +106,12 @@ export const AUDIT_ACTIONS = [
   "CREATE_SHARE_LINK",
   "REVOKE_SHARE_LINK",
   "ACCESS_SHARE_LINK",
+  // Sampah, pindah dokumen, catatan — FE mock (backend belum mendukung).
+  "TRASH_DOCUMENT",
+  "RESTORE_DOCUMENT",
+  "MOVE_DOCUMENT",
+  "ADD_NOTE",
+  "DELETE_NOTE",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -129,6 +135,11 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CREATE_SHARE_LINK: "Buat Tautan Publik",
   REVOKE_SHARE_LINK: "Cabut Tautan Publik",
   ACCESS_SHARE_LINK: "Akses via Tautan",
+  TRASH_DOCUMENT: "Ke Sampah",
+  RESTORE_DOCUMENT: "Pulihkan Dokumen",
+  MOVE_DOCUMENT: "Pindah Dokumen",
+  ADD_NOTE: "Tambah Catatan",
+  DELETE_NOTE: "Hapus Catatan",
 };
 
 /** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */
@@ -139,9 +150,16 @@ export function actionMeta(action: string): { label: string; className: string }
     action === "DELETE_DOCUMENT" ||
     action === "REVOKE_SHARE" ||
     action === "REVOKE_SHARE_LINK" ||
+    action === "DELETE_NOTE" ||
     action === "LOGIN_FAILED"
   ) {
     return { label, className: "border-destructive/50 text-destructive" };
+  }
+  if (action === "TRASH_DOCUMENT") {
+    return { label, className: "border-warn/60 text-warn" };
+  }
+  if (action === "RESTORE_DOCUMENT" || action === "ADD_NOTE") {
+    return { label, className: "border-ok/60 text-ok" };
   }
   if (action.startsWith("SHARE") || action.endsWith("SHARE_LINK") || action === "UPDATE_SHARE_ACCESS") {
     return { label, className: "border-primary/60 text-primary" };

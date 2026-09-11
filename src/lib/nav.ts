@@ -4,6 +4,7 @@ import {
   Share2,
   ScrollText,
   Users,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/types";
@@ -32,6 +33,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Manajemen User",
     href: "/users",
     icon: Users,
+    roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
+  },
+  {
+    label: "Sampah",
+    href: "/trash",
+    icon: Trash2,
     roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
   },
 ];

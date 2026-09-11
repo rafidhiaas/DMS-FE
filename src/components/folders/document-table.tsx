@@ -20,6 +20,7 @@ import { ItemActionsMenu } from "@/components/folders/item-actions-menu";
 export interface ItemHandlers {
   onOpen: (kind: "folder" | "document", id: string) => void;
   onRename: (kind: "folder" | "document", id: string, name: string) => void;
+  onMove: (kind: "folder" | "document", id: string, name: string) => void;
   onDelete: (kind: "folder" | "document", id: string, name: string) => void;
 }
 
@@ -104,6 +105,7 @@ export function DocumentTable({
                   openLabel="Buka folder"
                   onOpen={() => handlers.onOpen("folder", f.id)}
                   onRename={() => handlers.onRename("folder", f.id, f.name)}
+                  onMove={() => handlers.onMove("folder", f.id, f.name)}
                   onDelete={() => handlers.onDelete("folder", f.id, f.name)}
                 />
               </TableCell>
@@ -159,6 +161,7 @@ export function DocumentTable({
                     openLabel="Buka detail"
                     onOpen={() => handlers.onOpen("document", d.id)}
                     onRename={() => handlers.onRename("document", d.id, d.title)}
+                    onMove={() => handlers.onMove("document", d.id, d.title)}
                     onDelete={() => handlers.onDelete("document", d.id, d.title)}
                   />
                 </TableCell>

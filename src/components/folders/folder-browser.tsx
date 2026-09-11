@@ -10,8 +10,14 @@ import {
   useCreateFolder,
   useRenameFolder,
   useDeleteFolder,
+  useMoveFolder,
 } from "@/hooks/use-folders";
-import { useCreateDocument, useRenameDocument, useDeleteDocument } from "@/hooks/use-documents";
+import {
+  useCreateDocument,
+  useRenameDocument,
+  useDeleteDocument,
+  useMoveDocument,
+} from "@/hooks/use-documents";
 import { useLocalPref } from "@/hooks/use-local-pref";
 import { downloadDocument } from "@/lib/download";
 import { formatBytes, formatDate, STATUS_META } from "@/lib/format";
@@ -39,6 +45,7 @@ import { ItemActionsMenu } from "@/components/folders/item-actions-menu";
 import { FolderToolbar } from "@/components/folders/folder-toolbar";
 import { DocumentTable, type ItemHandlers } from "@/components/folders/document-table";
 import { BulkActionBar } from "@/components/folders/bulk-action-bar";
+import { MoveDialog } from "@/components/folders/move-dialog";
 import {
   CreateFolderDialog,
   CreateDocumentDialog,
@@ -49,6 +56,7 @@ import {
 
 type Target = { kind: "folder" | "document"; id: string; name: string };
 type DeleteTarget = Target | { kind: "bulk"; ids: string[] };
+type MoveTarget = Target | { kind: "bulk"; ids: string[] };
 
 const VIEW_PREF_KEY = "dms_folder_view";
 
@@ -68,6 +76,8 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   const createDocument = useCreateDocument();
   const renameDocument = useRenameDocument();
   const deleteDocument = useDeleteDocument();
+  const moveFolder = useMoveFolder();
+  const moveDocument = useMoveDocument();
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [createDocOpen, setCreateDocOpen] = useState(false);
@@ -78,6 +88,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   const [dragDepth, setDragDepth] = useState(0);
   const [renameTarget, setRenameTarget] = useState<Target | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
 
   const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
   const [view, setView] = useLocalPref<ViewMode>(VIEW_PREF_KEY, "grid", VIEW_MODES);
@@ -135,8 +146,46 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   const handlers: ItemHandlers = {
     onOpen: (kind, id) => router.push(kind === "folder" ? `/folders/${id}` : `/documents/${id}`),
     onRename: (kind, id, name) => setRenameTarget({ kind, id, name }),
+    onMove: (kind, id, name) => setMoveTarget({ kind, id, name }),
     onDelete: (kind, id, name) => setDeleteTarget({ kind, id, name }),
   };
+
+  async function handleMove(targetFolderId: string | null) {
+    if (!moveTarget) return;
+    if (moveTarget.kind === "folder") {
+      moveFolder.mutate(
+        { id: moveTarget.id, parentId: targetFolderId },
+        {
+          onSuccess: () => {
+            toast.success(`Folder "${moveTarget.name}" dipindahkan.`);
+            setMoveTarget(null);
+          },
+          onError: (e) => toast.error(e.message),
+        },
+      );
+      return;
+    }
+    if (!targetFolderId) return; // dokumen wajib berada di dalam folder
+    const ids = moveTarget.kind === "bulk" ? moveTarget.ids : [moveTarget.id];
+    setBulkBusy(true);
+    let ok = 0;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await moveDocument.mutateAsync({ id, folder_id: targetFolderId });
+        ok += 1;
+      } catch (err) {
+        failed += 1;
+        if (ids.length === 1) toast.error(err instanceof Error ? err.message : "Gagal memindahkan.");
+      }
+    }
+    setBulkBusy(false);
+    if (ok > 0) {
+      setMoveTarget(null);
+      clearSelection();
+      toast.success(failed === 0 ? `${ok} dokumen dipindahkan.` : `${ok} dipindahkan, ${failed} gagal.`);
+    }
+  }
 
   function handleCreateFolder(name: string) {
     createFolder.mutate(
@@ -276,18 +325,19 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
       setBulkBusy(false);
       setDeleteTarget(null);
       clearSelection();
-      if (failed === 0) toast.success(`${ok} dokumen dihapus.`);
-      else toast.warning(`${ok} dokumen dihapus, ${failed} gagal.`);
+      if (failed === 0) toast.success(`${ok} dokumen dipindahkan ke Sampah.`);
+      else toast.warning(`${ok} dokumen ke Sampah, ${failed} gagal.`);
       return;
     }
+    const isFolder = deleteTarget.kind === "folder";
     const opts = {
       onSuccess: () => {
-        toast.success("Berhasil dihapus.");
+        toast.success(isFolder ? "Folder dihapus." : "Dokumen dipindahkan ke Sampah.");
         setDeleteTarget(null);
       },
       onError: (e: Error) => toast.error(e.message),
     };
-    if (deleteTarget.kind === "folder") deleteFolder.mutate(deleteTarget.id, opts);
+    if (isFolder) deleteFolder.mutate(deleteTarget.id, opts);
     else deleteDocument.mutate(deleteTarget.id, opts);
   }
 
@@ -390,11 +440,13 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
           <BulkActionBar
             count={selectedIds.length}
             total={allDocs.length}
+            canWrite={canWrite}
             canDelete={canDelete}
             busy={bulkBusy}
             onSelectAll={selectAll}
             onClear={clearSelection}
             onDownload={handleBulkDownload}
+            onMove={() => setMoveTarget({ kind: "bulk", ids: selectedIds })}
             onDelete={() => setDeleteTarget({ kind: "bulk", ids: selectedIds })}
           />
         ) : (
@@ -465,6 +517,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
               canDelete={canDelete}
               onOpen={() => handlers.onOpen("folder", folder.id)}
               onRename={() => handlers.onRename("folder", folder.id, folder.name)}
+              onMove={() => handlers.onMove("folder", folder.id, folder.name)}
               onDelete={() => handlers.onDelete("folder", folder.id, folder.name)}
             />
           ))}
@@ -480,6 +533,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
               onToggle={() => toggleSelect(doc.id)}
               onOpen={() => handlers.onOpen("document", doc.id)}
               onRename={() => handlers.onRename("document", doc.id, doc.title)}
+              onMove={() => handlers.onMove("document", doc.id, doc.title)}
               onDelete={() => handlers.onDelete("document", doc.id, doc.title)}
             />
           ))}
@@ -530,13 +584,41 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         }
         description={
           deleteTarget?.kind === "bulk"
-            ? "Semua dokumen terpilih beserta seluruh versinya akan dihapus permanen."
+            ? "Semua dokumen terpilih dipindahkan ke Sampah dan dapat dipulihkan selama 30 hari."
             : deleteTarget?.kind === "folder"
               ? `Folder "${deleteTarget?.name}" beserta sub-foldernya akan dihapus. Folder yang berisi dokumen tidak dapat dihapus.`
-              : `Dokumen "${deleteTarget?.name}" dan seluruh versinya akan dihapus permanen.`
+              : `Dokumen "${deleteTarget?.name}" dipindahkan ke Sampah dan dapat dipulihkan selama 30 hari.`
         }
         onConfirm={handleDelete}
         pending={bulkBusy || deleteFolder.isPending || deleteDocument.isPending}
+      />
+      <MoveDialog
+        key={`mv-${moveTarget ? (moveTarget.kind === "bulk" ? "bulk" : moveTarget.id) : "none"}`}
+        open={moveTarget !== null}
+        onOpenChange={(v) => !v && !bulkBusy && setMoveTarget(null)}
+        title={
+          moveTarget?.kind === "bulk"
+            ? `Pindahkan ${moveTarget.ids.length} dokumen`
+            : moveTarget?.kind === "folder"
+              ? `Pindahkan folder “${moveTarget.name}”`
+              : `Pindahkan “${moveTarget?.name ?? ""}”`
+        }
+        description={
+          moveTarget?.kind === "folder"
+            ? "Pilih folder induk baru. Folder tidak bisa dipindah ke dalam dirinya sendiri."
+            : "Pilih folder tujuan. Dokumen harus berada di dalam sebuah folder."
+        }
+        movingFolderId={moveTarget?.kind === "folder" ? moveTarget.id : undefined}
+        currentFolderId={
+          moveTarget?.kind === "folder"
+            ? (allFolders.find((f) => f.id === moveTarget.id)?.parent_folder_id ?? null)
+            : isRoot
+              ? null
+              : folderId
+        }
+        allowRoot={moveTarget?.kind === "folder"}
+        onSubmit={handleMove}
+        pending={bulkBusy || moveFolder.isPending || moveDocument.isPending}
       />
     </div>
   );
@@ -550,6 +632,7 @@ function FolderCard({
   canDelete,
   onOpen,
   onRename,
+  onMove,
   onDelete,
 }: {
   folder: Folder;
@@ -557,6 +640,7 @@ function FolderCard({
   canDelete: boolean;
   onOpen: () => void;
   onRename: () => void;
+  onMove: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -580,6 +664,7 @@ function FolderCard({
         openLabel="Buka folder"
         onOpen={onOpen}
         onRename={onRename}
+        onMove={onMove}
         onDelete={onDelete}
       />
     </div>
@@ -596,6 +681,7 @@ function DocumentCard({
   onToggle,
   onOpen,
   onRename,
+  onMove,
   onDelete,
 }: {
   doc: DocumentItem;
@@ -607,6 +693,7 @@ function DocumentCard({
   onToggle: () => void;
   onOpen: () => void;
   onRename: () => void;
+  onMove: () => void;
   onDelete: () => void;
 }) {
   const status = STATUS_META[doc.status];
@@ -656,6 +743,7 @@ function DocumentCard({
           openLabel="Buka detail"
           onOpen={onOpen}
           onRename={onRename}
+          onMove={onMove}
           onDelete={onDelete}
         />
       </div>

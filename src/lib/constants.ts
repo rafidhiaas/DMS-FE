@@ -15,6 +15,7 @@ export const PROTECTED_PREFIXES = [
   "/shared",
   "/audit",
   "/users",
+  "/trash",
 ] as const;
 
 /** Halaman auth — jika sudah login, dilempar ke dashboard. */

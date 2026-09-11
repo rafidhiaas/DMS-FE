@@ -20,8 +20,18 @@ import {
   Layers,
   Link2,
   FolderOpen,
+  FolderInput,
+  StickyNote,
+  Send,
 } from "lucide-react";
-import { useDocument, useRenameDocument, useDeleteDocument, useUploadVersion } from "@/hooks/use-documents";
+import {
+  useDocument,
+  useRenameDocument,
+  useDeleteDocument,
+  useUploadVersion,
+  useMoveDocument,
+} from "@/hooks/use-documents";
+import { useNotes, useAddNote, useDeleteNote } from "@/hooks/use-notes";
 import { useDocumentShares } from "@/hooks/use-shares";
 import { useShareLinks } from "@/hooks/use-share-links";
 import { useDocumentHistory } from "@/hooks/use-audit-logs";
@@ -38,7 +48,14 @@ import {
   type AllowedExtension,
 } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/constants";
-import type { ActivityLog, DocumentDetail as DocumentDetailData, DocumentShare, Role, ShareLink } from "@/types";
+import type {
+  ActivityLog,
+  DocumentDetail as DocumentDetailData,
+  DocumentNote,
+  DocumentShare,
+  Role,
+  ShareLink,
+} from "@/types";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +81,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
+import { MoveDialog } from "@/components/folders/move-dialog";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
 import { isExpired } from "@/lib/mocks/share-link-store";
@@ -89,9 +107,11 @@ export function DocumentDetail({
   const { data: doc, isLoading, isError } = useDocument(documentId);
   const renameDocument = useRenameDocument();
   const deleteDocument = useDeleteDocument();
+  const moveDocument = useMoveDocument();
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -155,11 +175,25 @@ export function DocumentDetail({
     const folderId = doc!.folder_id;
     deleteDocument.mutate(documentId, {
       onSuccess: () => {
-        toast.success("Dokumen dihapus.");
+        toast.success("Dokumen dipindahkan ke Sampah.");
         router.push(`/folders/${folderId}`);
       },
       onError: (e) => toast.error(e.message),
     });
+  }
+
+  function handleMove(targetFolderId: string | null) {
+    if (!targetFolderId) return;
+    moveDocument.mutate(
+      { id: documentId, folder_id: targetFolderId },
+      {
+        onSuccess: () => {
+          toast.success("Dokumen dipindahkan.");
+          setMoveOpen(false);
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    );
   }
 
   return (
@@ -226,10 +260,16 @@ export function DocumentDetail({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {canWrite && (
-                    <DropdownMenuItem onClick={() => setRenameOpen(true)}>
-                      <Pencil className="size-4" />
-                      Ganti judul
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem onClick={() => setRenameOpen(true)}>
+                        <Pencil className="size-4" />
+                        Ganti judul
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setMoveOpen(true)}>
+                        <FolderInput className="size-4" />
+                        Pindahkan ke…
+                      </DropdownMenuItem>
+                    </>
                   )}
                   {canDelete && (
                     <>
@@ -262,6 +302,10 @@ export function DocumentDetail({
                   Versi
                   <TabCount value={doc.versions.length} />
                 </TabsTrigger>
+                <TabsTrigger value="notes" className="flex-none">
+                  <StickyNote data-icon="inline-start" />
+                  Catatan
+                </TabsTrigger>
                 <TabsTrigger value="history" className="flex-none">
                   <History data-icon="inline-start" />
                   Riwayat
@@ -278,6 +322,9 @@ export function DocumentDetail({
               </TabsContent>
               <TabsContent value="versions">
                 <VersionsTab doc={doc} />
+              </TabsContent>
+              <TabsContent value="notes">
+                <NotesTab documentId={documentId} role={role} currentUserId={currentUserId} />
               </TabsContent>
               <TabsContent value="history">
                 <HistoryTab documentId={documentId} />
@@ -323,9 +370,20 @@ export function DocumentDetail({
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Hapus dokumen?"
-        description={`Dokumen "${doc.title}" dan seluruh versinya akan dihapus permanen.`}
+        description={`Dokumen "${doc.title}" dipindahkan ke Sampah dan dapat dipulihkan selama 30 hari.`}
         onConfirm={handleDelete}
         pending={deleteDocument.isPending}
+      />
+      <MoveDialog
+        key={`doc-move-${moveOpen}`}
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        title={`Pindahkan “${doc.title}”`}
+        description="Pilih folder tujuan. Dokumen harus berada di dalam sebuah folder."
+        currentFolderId={doc.folder_id}
+        allowRoot={false}
+        onSubmit={handleMove}
+        pending={moveDocument.isPending}
       />
       <UploadVersionDialog
         key={`doc-ver-${versionOpen}`}
@@ -432,6 +490,121 @@ function VersionsTab({ doc }: { doc: DocumentDetailData }) {
         );
       })}
     </ol>
+  );
+}
+
+/* ------------------------------- Catatan -------------------------------- */
+
+function NotesTab({
+  documentId,
+  role,
+  currentUserId,
+}: {
+  documentId: string;
+  role: Role;
+  currentUserId: string;
+}) {
+  const notes = useNotes(documentId);
+  const addNote = useAddNote(documentId);
+  const deleteNote = useDeleteNote(documentId);
+  const [body, setBody] = useState("");
+  const canWrite = role !== "AUDITOR";
+  const isAdmin = role === "SUPER_ADMIN" || role === "COMPANY_ADMIN";
+
+  function submit() {
+    const text = body.trim();
+    if (!text) return;
+    addNote.mutate(text, {
+      onSuccess: () => {
+        setBody("");
+        toast.success("Catatan ditambahkan.");
+      },
+      onError: (e) => toast.error(e.message),
+    });
+  }
+
+  function remove(note: DocumentNote) {
+    deleteNote.mutate(note.id, {
+      onSuccess: () => toast.success("Catatan dihapus."),
+      onError: (e) => toast.error(e.message),
+    });
+  }
+
+  if (notes.data === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Catatan dokumen belum tersedia — backend belum menyediakan endpoint catatan.
+      </p>
+    );
+  }
+
+  const list = notes.data ?? [];
+
+  return (
+    <div className="space-y-5">
+      {canWrite && (
+        <div className="space-y-2">
+          <Label htmlFor="new-note">Catatan baru</Label>
+          <Textarea
+            id="new-note"
+            value={body}
+            placeholder="Tulis catatan untuk rekan kerja, mis. hal yang perlu direvisi…"
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") submit();
+            }}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">Ctrl+Enter untuk mengirim.</span>
+            <Button size="sm" disabled={!body.trim() || addNote.isPending} onClick={submit}>
+              {addNote.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+              Tambah catatan
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {notes.isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-lg" />
+          ))}
+        </div>
+      ) : notes.isError ? (
+        <p className="text-sm text-destructive">Gagal memuat catatan.</p>
+      ) : list.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Belum ada catatan pada dokumen ini.</p>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((note) => {
+            const own = note.user_id === currentUserId;
+            return (
+              <li key={note.id} className="rounded-lg border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-medium">{note.user?.name ?? note.user_id}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{formatDateTime(note.created_at)}</span>
+                  </div>
+                  {(own || isAdmin) && canWrite && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                      disabled={deleteNote.isPending}
+                      onClick={() => remove(note)}
+                      aria-label="Hapus catatan"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-2 whitespace-pre-wrap">{note.body}</p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

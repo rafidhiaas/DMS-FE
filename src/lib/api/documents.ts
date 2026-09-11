@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { mockStore } from "@/lib/mocks/dms-store";
-import type { DocumentItem, DocumentDetail, DocumentVersion } from "@/types";
+import type { DocumentItem, DocumentDetail, DocumentVersion, TrashItem } from "@/types";
 
 /** Lapisan akses data Dokumen (mock ↔ backend Express). */
 
@@ -53,5 +53,43 @@ export async function uploadNewVersion(
     `/documents/${id}/versions`,
     input,
   );
+  return data.document;
+}
+
+/* ------------------------------- Sampah ---------------------------------
+ * Backend menghapus permanen (DELETE /documents/:id) dan belum punya soft delete.
+ * Di mode backend fungsi-fungsi ini mengembalikan null / melempar error yang jelas.
+ * Usulan endpoint: GET /documents/trash, POST /documents/:id/restore,
+ * DELETE /documents/:id/purge, DELETE /documents/trash.
+ * ----------------------------------------------------------------------- */
+
+export async function fetchTrash(): Promise<TrashItem[] | null> {
+  if (env.USE_MOCKS) return mockStore.getTrash();
+  return null;
+}
+
+export async function restoreDocument(id: string): Promise<DocumentItem> {
+  if (env.USE_MOCKS) return mockStore.restoreDocument(id);
+  const { data } = await api.post<{ document: DocumentItem }>(`/documents/${id}/restore`);
+  return data.document;
+}
+
+export async function purgeDocument(id: string): Promise<void> {
+  if (env.USE_MOCKS) return mockStore.purgeDocument(id);
+  await api.delete(`/documents/${id}/purge`);
+}
+
+export async function emptyTrash(): Promise<number> {
+  if (env.USE_MOCKS) return mockStore.emptyTrash();
+  const { data } = await api.delete<{ purged: number }>("/documents/trash");
+  return data.purged;
+}
+
+/** Pindahkan dokumen ke folder lain. Backend belum punya endpoint (usulan: PATCH /documents/:id/move). */
+export async function moveDocument(id: string, folder_id: string): Promise<DocumentItem> {
+  if (env.USE_MOCKS) return mockStore.moveDocument(id, folder_id);
+  const { data } = await api.patch<{ document: DocumentItem }>(`/documents/${id}/move`, {
+    folder_id,
+  });
   return data.document;
 }
