@@ -35,7 +35,7 @@ import { useNotes, useAddNote, useDeleteNote } from "@/hooks/use-notes";
 import { useDocumentShares } from "@/hooks/use-shares";
 import { useShareLinks } from "@/hooks/use-share-links";
 import { useDocumentHistory } from "@/hooks/use-audit-logs";
-import { downloadDocument } from "@/lib/download";
+import { downloadDocument, downloadToast } from "@/lib/download";
 import {
   formatBytes,
   formatDateTime,
@@ -82,6 +82,7 @@ import {
 import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
 import { MoveDialog } from "@/components/folders/move-dialog";
+import { DocumentPreview } from "@/components/folders/document-preview";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
 import { isExpired } from "@/lib/mocks/share-link-store";
@@ -159,13 +160,13 @@ export function DocumentDetail({
 
   async function handleDownload() {
     try {
-      await downloadDocument({
+      const result = await downloadDocument({
         id: documentId,
         title: doc!.title,
         extension: doc!.extension,
         current_version: doc!.current_version,
       });
-      toast.success("Berkas simulasi diunduh (menunggu integrasi S3).");
+      toast.success(downloadToast(result));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal mengunduh berkas.");
     }
@@ -346,11 +347,12 @@ export function DocumentDetail({
             <CardTitle className="text-base">Pratinjau</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-20 text-center text-muted-foreground">
-              <FileIcon extension={doc.extension} className="size-10" />
-              <p className="text-sm">Pratinjau berkas belum tersedia.</p>
-              <p className="text-xs">Menunggu integrasi Object Storage (S3) di backend.</p>
-            </div>
+            <DocumentPreview
+              key={`preview-${doc.current_version}`}
+              documentId={documentId}
+              extension={doc.extension}
+              title={doc.title}
+            />
           </CardContent>
         </Card>
       </div>
@@ -467,6 +469,21 @@ function DetailsTab({ doc }: { doc: DocumentDetailData }) {
 /* -------------------------------- Versi --------------------------------- */
 
 function VersionsTab({ doc }: { doc: DocumentDetailData }) {
+  async function download(versionNumber: number) {
+    try {
+      const result = await downloadDocument({
+        id: doc.id,
+        title: doc.title,
+        extension: doc.extension,
+        current_version: doc.current_version,
+        version_number: versionNumber,
+      });
+      toast.success(downloadToast(result));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal mengunduh berkas.");
+    }
+  }
+
   return (
     <ol className="space-y-3">
       {doc.versions.map((v) => {
@@ -478,11 +495,22 @@ function VersionsTab({ doc }: { doc: DocumentDetailData }) {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">Versi {v.version_number}</span>
-              {current && (
-                <Badge variant="outline" className="text-xs">
-                  Terkini
-                </Badge>
-              )}
+              <span className="flex items-center gap-1.5">
+                {current && (
+                  <Badge variant="outline" className="text-xs">
+                    Terkini
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2"
+                  aria-label={`Unduh versi ${v.version_number}`}
+                  onClick={() => download(v.version_number)}
+                >
+                  <Download className="size-3.5" />
+                </Button>
+              </span>
             </div>
             {v.changelog && <p className="mt-1 text-muted-foreground">{v.changelog}</p>}
             <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(v.created_at)}</p>
@@ -798,22 +826,32 @@ function UploadVersionDialog({
   const [sizeBytes, setSizeBytes] = useState(102400);
   const [extension, setExtension] = useState(currentExtension);
   const [changelog, setChangelog] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const fileName = file?.name ?? null;
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  function applyFile(next: File) {
+    const ext = next.name.split(".").pop()?.toLowerCase() ?? "";
     if ((ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
       setExtension(ext as AllowedExtension);
     }
-    setSizeBytes(file.size || 102400);
-    setFileName(file.name);
+    setSizeBytes(next.size || 102400);
+    setFile(next);
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const next = e.target.files?.[0];
+    if (next) applyFile(next);
   }
 
   function submit() {
     uploadVersion.mutate(
-      { id: documentId, size_bytes: sizeBytes, changelog: changelog.trim() || undefined, extension },
+      {
+        id: documentId,
+        size_bytes: sizeBytes,
+        changelog: changelog.trim() || undefined,
+        extension,
+        file: file ?? undefined,
+      },
       {
         onSuccess: () => {
           toast.success("Versi baru ditambahkan.");
@@ -834,9 +872,19 @@ function UploadVersionDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-accent">
+          <label
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const next = e.dataTransfer.files?.[0];
+              if (next) applyFile(next);
+            }}
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-accent"
+          >
             <UploadCloud className="size-6" />
-            <span>{fileName ?? "Pilih berkas versi baru"}</span>
+            <span className={fileName ? "font-medium text-foreground" : undefined}>
+              {fileName ?? "Pilih berkas versi baru, atau seret ke sini"}
+            </span>
             <span className="text-xs">Ukuran terdeteksi: {formatBytes(sizeBytes)}</span>
             <input type="file" className="hidden" onChange={handleFile} />
           </label>

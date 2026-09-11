@@ -3,13 +3,14 @@
 import { toast } from "sonner";
 import { Download, Lock, ShieldCheck } from "lucide-react";
 import { usePublicShare } from "@/hooks/use-share-links";
-import { downloadDocument } from "@/lib/download";
+import { downloadDocument, downloadToast } from "@/lib/download";
 import { formatBytes, formatDate, formatRemaining, STATUS_META } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileIcon } from "@/components/folders/file-icon";
+import { DocumentPreview } from "@/components/folders/document-preview";
 
 /**
  * Tampilan dokumen untuk pengunjung tautan publik (tanpa login).
@@ -50,13 +51,13 @@ export function PublicShareView({ token }: { token: string }) {
 
   async function handleDownload() {
     try {
-      await downloadDocument({
+      const result = await downloadDocument({
         id: doc.id,
         title: doc.title,
         extension: doc.extension,
         current_version: doc.current_version,
       });
-      toast.success("Berkas simulasi diunduh (menunggu integrasi S3).");
+      toast.success(downloadToast(result));
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Gagal mengunduh."));
     }
@@ -93,11 +94,7 @@ export function PublicShareView({ token }: { token: string }) {
         )}
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-rule py-20 text-center text-muted-foreground">
-        <FileIcon extension={doc.extension} className="size-10" />
-        <p className="text-sm">Pratinjau berkas belum tersedia.</p>
-        <p className="text-xs">Menunggu integrasi Object Storage (S3) di backend.</p>
-      </div>
+      <DocumentPreview documentId={doc.id} extension={doc.extension} title={doc.title} />
 
       <p className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
         <ShieldCheck className="size-3.5" />

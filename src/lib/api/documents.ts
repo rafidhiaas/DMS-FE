@@ -10,9 +10,13 @@ export async function createDocument(input: {
   extension: string;
   size_bytes: number;
   folder_id: string;
+  /** Berkas asli — mock menyimpannya ke IndexedDB; backend belum menerima upload (S3 pending). */
+  file?: File;
 }): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.createDocument(input);
-  const { data } = await api.post<{ document: DocumentItem }>("/documents", input);
+  const { file: _file, ...body } = input;
+  void _file;
+  const { data } = await api.post<{ document: DocumentItem }>("/documents", body);
   return data.document;
 }
 
@@ -46,12 +50,14 @@ export async function fetchVersionHistory(id: string): Promise<DocumentVersion[]
 
 export async function uploadNewVersion(
   id: string,
-  input: { size_bytes: number; changelog?: string; extension?: string },
+  input: { size_bytes: number; changelog?: string; extension?: string; file?: File },
 ): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.uploadNewVersion(id, input);
+  const { file: _file, ...body } = input;
+  void _file;
   const { data } = await api.post<{ document: DocumentItem }>(
     `/documents/${id}/versions`,
-    input,
+    body,
   );
   return data.document;
 }

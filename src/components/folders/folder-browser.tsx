@@ -269,6 +269,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
           extension: info.extension,
           size_bytes: info.size_bytes,
           folder_id: folderId,
+          file,
         });
         ok += 1;
       } catch (err) {
@@ -282,7 +283,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
     }
   }
 
-  function handleCreateDocument(input: { title: string; extension: string; size_bytes: number }) {
+  function handleCreateDocument(input: { title: string; extension: string; size_bytes: number; file?: File }) {
     createDocument.mutate(
       { ...input, folder_id: folderId },
       {
@@ -344,16 +345,18 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   async function handleBulkDownload() {
     setBulkBusy(true);
     let ok = 0;
+    let real = 0;
     for (const id of selectedIds) {
       const d = allDocs.find((x) => x.id === id);
       if (!d) continue;
       try {
-        await downloadDocument({
+        const result = await downloadDocument({
           id: d.id,
           title: d.title,
           extension: d.extension,
           current_version: d.current_version,
         });
+        if (result === "file") real += 1;
         ok += 1;
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Gagal mengunduh.");
@@ -361,7 +364,13 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
       }
     }
     setBulkBusy(false);
-    if (ok > 0) toast.success(`${ok} berkas simulasi diunduh (menunggu integrasi S3).`);
+    if (ok > 0) {
+      toast.success(
+        real === ok
+          ? `${ok} berkas diunduh.`
+          : `${ok} berkas diunduh (${ok - real} berupa simulasi karena data contoh).`,
+      );
+    }
   }
 
   /* ------------------------------- render ------------------------------ */

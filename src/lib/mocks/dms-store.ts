@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 import { recordActivity } from "@/lib/mocks/audit-store";
 import { getMockActor } from "@/lib/mocks/actor";
+import { putFile, deleteFiles } from "@/lib/mocks/file-store";
 
 /**
  * MOCK data store untuk Folder & Dokumen — persist di localStorage browser.
@@ -140,6 +141,15 @@ export function peekFolders(): Folder[] {
   return load().folders;
 }
 
+/** Id versi (default: versi terkini) sebuah dokumen — kunci berkas di file-store. */
+export function findVersionId(documentId: string, versionNumber?: number): string | null {
+  const data = load();
+  const doc = data.documents.find((d) => d.id === documentId);
+  if (!doc) return null;
+  const n = versionNumber ?? doc.current_version;
+  return data.versions.find((v) => v.document_id === documentId && v.version_number === n)?.id ?? null;
+}
+
 export const mockStore = {
   async getContents(folderId: string): Promise<FolderContents> {
     const data = load();
@@ -237,10 +247,12 @@ export const mockStore = {
     const orphaned = new Set(
       data.documents.filter((d) => toDelete.has(d.folder_id)).map((d) => d.id),
     );
+    const orphanVersionIds = data.versions.filter((v) => orphaned.has(v.document_id)).map((v) => v.id);
     data.folders = data.folders.filter((f) => !toDelete.has(f.id));
     data.documents = data.documents.filter((d) => !orphaned.has(d.id));
     data.versions = data.versions.filter((v) => !orphaned.has(v.document_id));
     save(data);
+    await deleteFiles(orphanVersionIds);
     recordActivity("DELETE_FOLDER", `Menghapus folder "${folderName}"`);
     return delay(undefined);
   },
@@ -250,8 +262,11 @@ export const mockStore = {
     extension: string;
     size_bytes: number;
     folder_id: string;
+    /** Berkas asli (opsional) — disimpan ke IndexedDB untuk pratinjau/unduh. */
+    file?: File;
   }): Promise<DocumentItem> {
     const data = load();
+    if (!data.folders.some((f) => f.id === input.folder_id)) throw new Error("Folder tujuan tidak ditemukan.");
     const doc: DocumentItem = {
       id: uuid(),
       title: input.title.trim(),
@@ -263,17 +278,19 @@ export const mockStore = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    const versionId = uuid();
     data.documents.push(doc);
     data.versions.push({
-      id: uuid(),
+      id: versionId,
       document_id: doc.id,
       version_number: 1,
-      s3_file_key: `pending-upload/${uuid()}.${input.extension}`,
+      s3_file_key: input.file ? `local/${versionId}/${input.file.name}` : `pending-upload/${versionId}.${input.extension}`,
       uploaded_by: getMockActor().id,
       changelog: "Versi awal dokumen.",
       created_at: doc.created_at,
     });
     save(data);
+    if (input.file) await putFile(versionId, input.file);
     recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`, { document_id: doc.id });
     return delay(doc);
   },
@@ -356,9 +373,11 @@ export const mockStore = {
     const data = load();
     const doc = data.documents.find((d) => d.id === id);
     if (!doc || !doc.deleted_at) throw new Error("Dokumen tidak ada di Sampah.");
+    const versionIds = data.versions.filter((v) => v.document_id === id).map((v) => v.id);
     data.documents = data.documents.filter((d) => d.id !== id);
     data.versions = data.versions.filter((v) => v.document_id !== id);
     save(data);
+    await deleteFiles(versionIds);
     recordActivity("DELETE_DOCUMENT", `Menghapus permanen dokumen "${doc.title}" beserta seluruh versinya`, {
       document_id: id,
     });
@@ -371,9 +390,11 @@ export const mockStore = {
     const trashed = data.documents.filter((d) => d.deleted_at);
     if (trashed.length === 0) return delay(0);
     const ids = new Set(trashed.map((d) => d.id));
+    const versionIds = data.versions.filter((v) => ids.has(v.document_id)).map((v) => v.id);
     data.documents = data.documents.filter((d) => !ids.has(d.id));
     data.versions = data.versions.filter((v) => !ids.has(v.document_id));
     save(data);
+    await deleteFiles(versionIds);
     recordActivity("DELETE_DOCUMENT", `Mengosongkan Sampah (${trashed.length} dokumen dihapus permanen)`);
     return delay(trashed.length);
   },
@@ -398,17 +419,20 @@ export const mockStore = {
 
   async uploadNewVersion(
     id: string,
-    input: { size_bytes: number; changelog?: string; extension?: string },
+    input: { size_bytes: number; changelog?: string; extension?: string; file?: File },
   ): Promise<DocumentItem> {
     const data = load();
-    const doc = data.documents.find((d) => d.id === id);
+    const doc = data.documents.find((d) => d.id === id && !d.deleted_at);
     if (!doc) throw new Error("Dokumen tidak ditemukan.");
     const versionNumber = doc.current_version + 1;
+    const versionId = uuid();
     data.versions.push({
-      id: uuid(),
+      id: versionId,
       document_id: id,
       version_number: versionNumber,
-      s3_file_key: `pending-upload/${uuid()}.${input.extension ?? doc.extension}`,
+      s3_file_key: input.file
+        ? `local/${versionId}/${input.file.name}`
+        : `pending-upload/${versionId}.${input.extension ?? doc.extension}`,
       uploaded_by: getMockActor().id,
       changelog: input.changelog ?? null,
       created_at: new Date().toISOString(),
@@ -419,6 +443,7 @@ export const mockStore = {
     doc.status = "PENDING_REVIEW";
     doc.updated_at = new Date().toISOString();
     save(data);
+    if (input.file) await putFile(versionId, input.file);
     recordActivity(
       "UPLOAD_VERSION",
       `Mengunggah versi ${versionNumber} dokumen "${doc.title}"${input.changelog ? ` — ${input.changelog}` : ""}`,

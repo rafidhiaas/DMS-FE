@@ -117,6 +117,7 @@ export function useUploadVersion() {
       size_bytes: number;
       changelog?: string;
       extension?: string;
+      file?: File;
     }) => documentsApi.uploadNewVersion(id, input),
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: documentKeys.detail(id) });

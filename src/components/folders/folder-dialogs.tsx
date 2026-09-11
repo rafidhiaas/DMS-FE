@@ -112,7 +112,7 @@ export function CreateDocumentDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSubmit: (input: { title: string; extension: string; size_bytes: number }) => void;
+  onSubmit: (input: { title: string; extension: string; size_bytes: number; file?: File }) => void;
   pending: boolean;
   /** Berkas hasil drag-and-drop — mengisi form saat dialog dibuka (dialog di-remount via key). */
   initialFile?: File | null;
@@ -121,13 +121,14 @@ export function CreateDocumentDialog({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [extension, setExtension] = useState<AllowedExtension>(initial?.extension ?? "pdf");
   const [sizeBytes, setSizeBytes] = useState<number>(initial?.size_bytes ?? 102400);
-  const [fileName, setFileName] = useState<string | null>(initialFile?.name ?? null);
+  const [file, setFile] = useState<File | null>(initialFile ?? null);
+  const fileName = file?.name ?? null;
 
-  function applyFile(file: File) {
-    const info = describeFile(file);
+  function applyFile(next: File) {
+    const info = describeFile(next);
     if (info.extension) setExtension(info.extension);
     setSizeBytes(info.size_bytes);
-    setFileName(file.name);
+    setFile(next);
     if (!title.trim()) setTitle(info.title);
   }
 
@@ -216,7 +217,9 @@ export function CreateDocumentDialog({
           </Button>
           <Button
             disabled={!valid || pending}
-            onClick={() => onSubmit({ title: title.trim(), extension, size_bytes: sizeBytes })}
+            onClick={() =>
+              onSubmit({ title: title.trim(), extension, size_bytes: sizeBytes, file: file ?? undefined })
+            }
           >
             {pending && <Loader2 className="size-4 animate-spin" />}
             Unggah

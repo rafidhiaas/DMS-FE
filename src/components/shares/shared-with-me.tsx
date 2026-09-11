@@ -4,7 +4,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Download, ExternalLink, Lock } from "lucide-react";
 import { useSharedWithMe } from "@/hooks/use-shares";
-import { downloadDocument } from "@/lib/download";
+import { downloadDocument, downloadToast } from "@/lib/download";
 import { formatDate, ACCESS_LEVEL_META, STATUS_META } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -59,13 +59,13 @@ export function SharedWithMe() {
 
   async function handleDownload(item: (typeof items)[number]) {
     try {
-      await downloadDocument({
+      const result = await downloadDocument({
         id: item.document.id,
         title: item.document.title,
         extension: item.document.extension,
         current_version: item.document.current_version,
       });
-      toast.success("Berkas simulasi diunduh (menunggu integrasi S3).");
+      toast.success(downloadToast(result));
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Gagal mengunduh."));
     }
