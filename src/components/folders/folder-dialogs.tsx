@@ -292,6 +292,7 @@ export function DeleteConfirmDialog({
   description,
   onConfirm,
   pending,
+  confirmLabel = "Hapus",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -299,7 +300,10 @@ export function DeleteConfirmDialog({
   description: string;
   onConfirm: () => void;
   pending: boolean;
+  /** Teks tombol konfirmasi (dialog juga dipakai untuk konfirmasi non-hapus). */
+  confirmLabel?: string;
 }) {
+  const destructive = confirmLabel === "Hapus";
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -315,10 +319,10 @@ export function DeleteConfirmDialog({
               onConfirm();
             }}
             disabled={pending}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className={destructive ? "bg-destructive text-white hover:bg-destructive/90" : undefined}
           >
             {pending && <Loader2 className="size-4 animate-spin" />}
-            Hapus
+            {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

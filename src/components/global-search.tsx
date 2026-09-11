@@ -226,6 +226,11 @@ function SearchPanel({ onClose }: { onClose: () => void }) {
                         <span className="block truncate font-mono text-[11px] text-muted-foreground">
                           {r.folder_name} · {formatDate(r.updated_at)}
                         </span>
+                        {r.snippet && (
+                          <span className="mt-0.5 block truncate text-[12px] text-muted-foreground italic">
+                            “{r.snippet}”
+                          </span>
+                        )}
                       </span>
                       <Badge variant="secondary" className={cn("hidden sm:inline-flex", status.className)}>
                         {status.label}

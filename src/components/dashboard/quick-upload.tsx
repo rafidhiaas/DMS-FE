@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { UploadCloud } from "lucide-react";
 import { useCreateDocument } from "@/hooks/use-documents";
 import { describeFile } from "@/components/folders/folder-dialogs";
+import { asDuplicateError } from "@/lib/api/documents";
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export function QuickUpload({
     setBusy(true);
     let ok = 0;
     const skipped: string[] = [];
+    const duplicates: string[] = [];
     for (const file of files) {
       const info = describeFile(file);
       if (!info.extension) {
@@ -68,11 +70,14 @@ export function QuickUpload({
         });
         ok += 1;
       } catch (err) {
-        toast.error(`${file.name}: ${err instanceof Error ? err.message : "gagal diunggah"}`);
+        const dup = asDuplicateError(err);
+        if (dup) duplicates.push(`${file.name} (sudah ada: ${dup.existing.title})`);
+        else toast.error(`${file.name}: ${err instanceof Error ? err.message : "gagal diunggah"}`);
       }
     }
     setBusy(false);
     setFiles([]);
+    if (duplicates.length > 0) toast.warning(`${duplicates.length} berkas duplikat dilewati: ${duplicates.join("; ")}`);
     if (skipped.length > 0) {
       toast.warning(`${skipped.length} berkas dilewati (ekstensi tidak didukung): ${skipped.join(", ")}`);
     }

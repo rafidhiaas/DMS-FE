@@ -15,6 +15,7 @@ import { findTransition } from "@/lib/workflow";
 import { recordActivity } from "@/lib/mocks/audit-store";
 import { getMockActor } from "@/lib/mocks/actor";
 import { putFile, deleteFiles } from "@/lib/mocks/file-store";
+import { indexFileContent, removeContent } from "@/lib/mocks/content-store";
 
 /**
  * MOCK data store untuk Folder & Dokumen — persist di localStorage browser.
@@ -172,6 +173,26 @@ export function peekFolders(): Folder[] {
   return load().folders;
 }
 
+/** Dilempar createDocument bila berkas identik sudah ada (pola dedupe checksum Paperless). */
+export class DuplicateDocumentError extends Error {
+  existing: { id: string; title: string; folder_name: string };
+  constructor(existing: { id: string; title: string; folder_name: string }) {
+    super(`Berkas identik sudah ada: "${existing.title}" di folder ${existing.folder_name}.`);
+    this.name = "DuplicateDocumentError";
+    this.existing = existing;
+  }
+}
+
+async function sha256(file: File): Promise<string | null> {
+  try {
+    if (typeof crypto === "undefined" || !crypto.subtle) return null;
+    const buf = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
 /** Lepas referensi metadata yang dihapus dari semua dokumen (dipanggil meta-store). */
 export function detachMeta(kind: MetaKind, id: string): void {
   const data = load();
@@ -316,6 +337,7 @@ export const mockStore = {
     data.versions = data.versions.filter((v) => !orphaned.has(v.document_id));
     save(data);
     await deleteFiles(orphanVersionIds);
+    removeContent(Array.from(orphaned));
     recordActivity("DELETE_FOLDER", `Menghapus folder "${folderName}"`);
     return delay(undefined);
   },
@@ -327,9 +349,23 @@ export const mockStore = {
     folder_id: string;
     /** Berkas asli (opsional) — disimpan ke IndexedDB untuk pratinjau/unduh. */
     file?: File;
+    /** Lewati pemeriksaan duplikat (pengguna sudah mengonfirmasi). */
+    allow_duplicate?: boolean;
   }): Promise<DocumentItem> {
     const data = load();
     if (!data.folders.some((f) => f.id === input.folder_id)) throw new Error("Folder tujuan tidak ditemukan.");
+    const checksum = input.file ? await sha256(input.file) : null;
+    if (checksum && !input.allow_duplicate) {
+      const dupVersion = data.versions.find((v) => v.checksum === checksum);
+      const dupDoc = dupVersion && data.documents.find((d) => d.id === dupVersion.document_id && !d.deleted_at);
+      if (dupDoc) {
+        throw new DuplicateDocumentError({
+          id: dupDoc.id,
+          title: dupDoc.title,
+          folder_name: data.folders.find((f) => f.id === dupDoc.folder_id)?.name ?? "—",
+        });
+      }
+    }
     const doc: DocumentItem = {
       id: uuid(),
       title: input.title.trim(),
@@ -358,9 +394,13 @@ export const mockStore = {
       uploaded_by: getMockActor().id,
       changelog: "Versi awal dokumen.",
       created_at: doc.created_at,
+      checksum,
     });
     save(data);
-    if (input.file) await putFile(versionId, input.file);
+    if (input.file) {
+      await putFile(versionId, input.file);
+      await indexFileContent(doc.id, input.file);
+    }
     recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`, { document_id: doc.id });
     return delay(doc);
   },
@@ -448,6 +488,7 @@ export const mockStore = {
     data.versions = data.versions.filter((v) => v.document_id !== id);
     save(data);
     await deleteFiles(versionIds);
+    removeContent([id]);
     recordActivity("DELETE_DOCUMENT", `Menghapus permanen dokumen "${doc.title}" beserta seluruh versinya`, {
       document_id: id,
     });
@@ -465,6 +506,7 @@ export const mockStore = {
     data.versions = data.versions.filter((v) => !ids.has(v.document_id));
     save(data);
     await deleteFiles(versionIds);
+    removeContent(Array.from(ids));
     recordActivity("DELETE_DOCUMENT", `Mengosongkan Sampah (${trashed.length} dokumen dihapus permanen)`);
     return delay(trashed.length);
   },
@@ -611,6 +653,7 @@ export const mockStore = {
       uploaded_by: getMockActor().id,
       changelog: input.changelog ?? null,
       created_at: new Date().toISOString(),
+      checksum: input.file ? await sha256(input.file) : null,
     });
     doc.current_version = versionNumber;
     doc.size_bytes = String(input.size_bytes);
@@ -618,7 +661,10 @@ export const mockStore = {
     doc.status = "PENDING_REVIEW";
     doc.updated_at = new Date().toISOString();
     save(data);
-    if (input.file) await putFile(versionId, input.file);
+    if (input.file) {
+      await putFile(versionId, input.file);
+      await indexFileContent(id, input.file);
+    }
     recordActivity(
       "UPLOAD_VERSION",
       `Mengunggah versi ${versionNumber} dokumen "${doc.title}"${input.changelog ? ` — ${input.changelog}` : ""}`,

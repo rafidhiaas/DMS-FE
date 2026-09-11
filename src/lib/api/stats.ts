@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { peekDocuments, peekFolders } from "@/lib/mocks/dms-store";
+import { peekMeta } from "@/lib/mocks/meta-store";
 import { mockAuditStore } from "@/lib/mocks/audit-store";
 import { fetchActivityLogs } from "@/lib/api/activity-logs";
 import type { DocumentItem, DocumentStatus, FolderContents } from "@/types";
@@ -17,6 +18,9 @@ export interface DmsStats {
   totalBytes: number | null;
   /** Jumlah dokumen per status siklus hidup (null = data tidak tersedia). */
   byStatus: Record<DocumentStatus, number> | null;
+  /** Distribusi per tag / tipe dokumen (mock; null di mode backend). */
+  byTag: Array<{ id: string; name: string; color?: string; count: number }> | null;
+  byType: Array<{ id: string; name: string; count: number }> | null;
 }
 
 export async function fetchDmsStats(): Promise<DmsStats> {
@@ -30,11 +34,23 @@ export async function fetchDmsStats(): Promise<DmsStats> {
       ARCHIVED: 0,
     };
     for (const d of docs) byStatus[d.status] += 1;
+    const byTag = peekMeta("tag")
+      .map((t) => ({ id: t.id, name: t.name, color: t.color, count: docs.filter((d) => (d.tag_ids ?? []).includes(t.id)).length }))
+      .filter((t) => t.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+    const byType = peekMeta("type")
+      .map((t) => ({ id: t.id, name: t.name, count: docs.filter((d) => d.document_type_id === t.id).length }))
+      .filter((t) => t.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
     return {
       folders: folders.length,
       documents: docs.length,
       totalBytes: docs.reduce((sum, d) => sum + Number(d.size_bytes), 0),
       byStatus,
+      byTag,
+      byType,
     };
   }
   const { data } = await api.get<FolderContents>("/folders/root");
@@ -43,6 +59,8 @@ export async function fetchDmsStats(): Promise<DmsStats> {
     documents: null,
     totalBytes: null,
     byStatus: null,
+    byTag: null,
+    byType: null,
   };
 }
 

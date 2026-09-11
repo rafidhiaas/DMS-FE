@@ -135,6 +135,8 @@ export interface DocumentVersion {
   uploaded_by: string;
   changelog: string | null;
   created_at: string;
+  /** SHA-256 berkas (FE mock) — untuk deteksi duplikat saat unggah. */
+  checksum?: string | null;
 }
 
 export interface DocumentDetail extends DocumentItem {
@@ -245,4 +247,6 @@ export type SearchResult =
       status: DocumentStatus;
       folder_name: string;
       updated_at: string;
+      /** Cuplikan isi berkas yang cocok (pencarian konten). */
+      snippet?: string;
     };

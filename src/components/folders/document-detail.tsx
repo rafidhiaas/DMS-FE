@@ -24,6 +24,7 @@ import {
   StickyNote,
   Send,
   Tags,
+  FileText,
 } from "lucide-react";
 import {
   useDocument,
@@ -87,6 +88,8 @@ import { MoveDialog } from "@/components/folders/move-dialog";
 import { DocumentPreview } from "@/components/folders/document-preview";
 import { EditMetadataDialog } from "@/components/folders/edit-metadata-dialog";
 import { StatusActions } from "@/components/folders/status-actions";
+import { ContentTab, useDocumentContent } from "@/components/folders/content-tab";
+import { SimilarDocuments } from "@/components/folders/similar-documents";
 import { TagChip } from "@/components/metadata/tag-chip";
 import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
 import { useCustomFields } from "@/hooks/use-custom-fields";
@@ -122,6 +125,8 @@ export function DocumentDetail({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const content = useDocumentContent(documentId);
+  const hasContent = Boolean(content.data);
 
   // Jejak "Terakhir dibuka" (localStorage) — bukan state React, aman di effect.
   useEffect(() => {
@@ -324,6 +329,12 @@ export function DocumentDetail({
                   Versi
                   <TabCount value={doc.versions.length} />
                 </TabsTrigger>
+                {hasContent && (
+                  <TabsTrigger value="content" className="flex-none">
+                    <FileText data-icon="inline-start" />
+                    Konten
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="notes" className="flex-none">
                   <StickyNote data-icon="inline-start" />
                   Catatan
@@ -345,6 +356,11 @@ export function DocumentDetail({
               <TabsContent value="versions">
                 <VersionsTab doc={doc} />
               </TabsContent>
+              {hasContent && (
+                <TabsContent value="content">
+                  <ContentTab documentId={documentId} />
+                </TabsContent>
+              )}
               <TabsContent value="notes">
                 <NotesTab documentId={documentId} role={role} currentUserId={currentUserId} />
               </TabsContent>
@@ -362,8 +378,9 @@ export function DocumentDetail({
           </Tabs>
         </Card>
 
-        {/* Pratinjau — menempel saat halaman digulir di layar lebar. */}
-        <Card className="lg:sticky lg:top-6 lg:col-span-2">
+        {/* Pratinjau + dokumen mirip — menempel saat halaman digulir di layar lebar. */}
+        <div className="space-y-5 lg:sticky lg:top-6 lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Pratinjau</CardTitle>
           </CardHeader>
@@ -376,6 +393,8 @@ export function DocumentDetail({
             />
           </CardContent>
         </Card>
+        <SimilarDocuments doc={doc} />
+        </div>
       </div>
 
       {/* Dialogs */}

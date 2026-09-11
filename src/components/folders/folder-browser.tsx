@@ -57,6 +57,7 @@ import {
   DeleteConfirmDialog,
   describeFile,
 } from "@/components/folders/folder-dialogs";
+import { asDuplicateError } from "@/lib/api/documents";
 
 type Target = { kind: "folder" | "document"; id: string; name: string };
 type DeleteTarget = Target | { kind: "bulk"; ids: string[] };
@@ -115,6 +116,11 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   };
   const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [bulkMetaOpen, setBulkMetaOpen] = useState(false);
+  /* Konfirmasi duplikat: berkas dengan checksum sama sudah ada. */
+  const [duplicate, setDuplicate] = useState<{
+    input: { title: string; extension: string; size_bytes: number; file?: File };
+    existing: { id: string; title: string; folder_name: string };
+  } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -293,6 +299,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
     setBulkBusy(true);
     let ok = 0;
     const skipped: string[] = [];
+    const duplicates: string[] = [];
     for (const file of files) {
       const info = describeFile(file);
       if (!info.extension) {
@@ -309,7 +316,9 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         });
         ok += 1;
       } catch (err) {
-        toast.error(`${file.name}: ${err instanceof Error ? err.message : "gagal diunggah"}`);
+        const dup = asDuplicateError(err);
+        if (dup) duplicates.push(`${file.name} (sudah ada: ${dup.existing.title})`);
+        else toast.error(`${file.name}: ${err instanceof Error ? err.message : "gagal diunggah"}`);
       }
     }
     setBulkBusy(false);
@@ -317,17 +326,28 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
     if (skipped.length > 0) {
       toast.warning(`${skipped.length} berkas dilewati (ekstensi tidak didukung): ${skipped.join(", ")}`);
     }
+    if (duplicates.length > 0) {
+      toast.warning(`${duplicates.length} berkas duplikat dilewati: ${duplicates.join("; ")}`);
+    }
   }
 
-  function handleCreateDocument(input: { title: string; extension: string; size_bytes: number; file?: File }) {
+  function handleCreateDocument(
+    input: { title: string; extension: string; size_bytes: number; file?: File },
+    allowDuplicate = false,
+  ) {
     createDocument.mutate(
-      { ...input, folder_id: folderId },
+      { ...input, folder_id: folderId, allow_duplicate: allowDuplicate },
       {
         onSuccess: () => {
           toast.success(`Dokumen "${input.title}" diunggah.`);
           setCreateDocOpen(false);
+          setDuplicate(null);
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => {
+          const dup = asDuplicateError(e);
+          if (dup) setDuplicate({ input, existing: dup.existing });
+          else toast.error(e.message);
+        },
       },
     );
   }
@@ -640,6 +660,15 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         }
         onConfirm={handleDelete}
         pending={bulkBusy || deleteFolder.isPending || deleteDocument.isPending}
+      />
+      <DeleteConfirmDialog
+        open={duplicate !== null}
+        onOpenChange={(v) => !v && setDuplicate(null)}
+        title="Berkas identik sudah ada"
+        description={`Isi berkas ini sama persis dengan dokumen "${duplicate?.existing.title ?? ""}" di folder ${duplicate?.existing.folder_name ?? ""}. Tetap unggah sebagai dokumen baru?`}
+        confirmLabel="Tetap unggah"
+        onConfirm={() => duplicate && handleCreateDocument(duplicate.input, true)}
+        pending={createDocument.isPending}
       />
       <BulkMetadataDialog
         key={`bm-${bulkMetaOpen}`}

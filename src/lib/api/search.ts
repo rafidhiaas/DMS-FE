@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { peekDocuments, peekFolders } from "@/lib/mocks/dms-store";
 import { peekMeta } from "@/lib/mocks/meta-store";
+import { searchContent } from "@/lib/mocks/content-store";
 import type { Folder, SearchResult } from "@/types";
 
 /**
@@ -50,6 +51,7 @@ async function mockSearch(query: string): Promise<SearchResult[]> {
   const tags = peekMeta("tag");
   const types = peekMeta("type");
   const correspondents = peekMeta("correspondent");
+  const contentHits = new Map(searchContent(query).map((h) => [h.documentId, h.snippet]));
 
   const scored: Array<{ s: number; r: SearchResult }> = [];
   for (const f of folders) {
@@ -68,6 +70,7 @@ async function mockSearch(query: string): Promise<SearchResult[]> {
       typeScore * 0.7,
       corrScore * 0.7,
       d.asn != null && String(d.asn) === q ? 3 : 0,
+      contentHits.has(d.id) ? 1 : 0,
     );
     if (s) {
       const folder = folders.find((f) => f.id === d.folder_id);
@@ -81,6 +84,7 @@ async function mockSearch(query: string): Promise<SearchResult[]> {
           status: d.status,
           folder_name: folder?.name ?? "-",
           updated_at: d.updated_at,
+          snippet: contentHits.get(d.id),
         },
       });
     }

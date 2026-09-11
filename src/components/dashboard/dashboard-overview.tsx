@@ -233,6 +233,24 @@ export function DashboardOverview({
         </section>
       </div>
 
+      {/* Distribusi tag & tipe (pola statistik Paperless) */}
+      {(stats.data?.byTag?.length || stats.data?.byType?.length) ? (
+        <div className="grid gap-12 lg:grid-cols-2">
+          {!!stats.data?.byTag?.length && (
+            <section>
+              <SectionHeader title="Tag terbanyak" action={<MoreLink href="/metadata">Kelola tag</MoreLink>} />
+              <Distribution items={stats.data.byTag} total={stats.data.documents ?? 0} />
+            </section>
+          )}
+          {!!stats.data?.byType?.length && (
+            <section>
+              <SectionHeader title="Tipe dokumen" action={<MoreLink href="/documents">Semua dokumen</MoreLink>} />
+              <Distribution items={stats.data.byType} total={stats.data.documents ?? 0} />
+            </section>
+          )}
+        </div>
+      ) : null}
+
       {/* Antrian review (admin) / dokumen terbaru + aktivitas terbaru */}
       <div className="grid gap-12 lg:grid-cols-2">
         {isAdmin ? (
@@ -388,6 +406,39 @@ function StatusBreakdown({ byStatus }: { byStatus: Record<DocumentStatus, number
       {total === 0 && (
         <p className="pt-2 text-[13px] text-muted-foreground">Belum ada dokumen.</p>
       )}
+    </div>
+  );
+}
+
+function Distribution({
+  items,
+  total,
+}: {
+  items: Array<{ id: string; name: string; color?: string; count: number }>;
+  total: number;
+}) {
+  const max = Math.max(1, ...items.map((i) => i.count));
+  return (
+    <div className="ledger pt-1">
+      {items.map((it) => (
+        <div key={it.id} className="flex items-center gap-3 py-2 text-[14px]">
+          <span
+            className="size-2 shrink-0 rounded-[2px]"
+            style={{ backgroundColor: it.color ?? "var(--primary)" }}
+          />
+          <span className="w-36 truncate">{it.name}</span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
+            <span
+              className="block h-full rounded-sm"
+              style={{ width: `${(it.count / max) * 100}%`, backgroundColor: it.color ?? "var(--primary)", opacity: 0.85 }}
+            />
+          </span>
+          <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
+            {total > 0 ? Math.round((it.count / total) * 100) : 0}%
+          </span>
+          <span className="w-8 text-right font-mono text-[13px] tabular-nums">{it.count}</span>
+        </div>
+      ))}
     </div>
   );
 }

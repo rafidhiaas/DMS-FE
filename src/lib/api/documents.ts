@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { mockStore } from "@/lib/mocks/dms-store";
+import { mockStore, DuplicateDocumentError } from "@/lib/mocks/dms-store";
+import { getContent } from "@/lib/mocks/content-store";
 import type {
   DocumentItem,
   DocumentDetail,
@@ -23,10 +24,13 @@ export async function createDocument(input: {
   folder_id: string;
   /** Berkas asli — mock menyimpannya ke IndexedDB; backend belum menerima upload (S3 pending). */
   file?: File;
+  /** Lewati peringatan duplikat (checksum sama) — pengguna sudah mengonfirmasi. */
+  allow_duplicate?: boolean;
 }): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.createDocument(input);
-  const { file: _file, ...body } = input;
+  const { file: _file, allow_duplicate: _dup, ...body } = input;
   void _file;
+  void _dup;
   const { data } = await api.post<{ document: DocumentItem }>("/documents", body);
   return data.document;
 }
@@ -176,4 +180,18 @@ export async function bulkSetStatus(
     }
   }
   return { changed, skipped };
+}
+
+/** Apakah error dari createDocument adalah peringatan duplikat (bawa info dokumen yang sudah ada). */
+export function asDuplicateError(e: unknown): DuplicateDocumentError | null {
+  return e instanceof DuplicateDocumentError ? e : null;
+}
+
+/**
+ * Teks terindeks sebuah dokumen (pengganti OCR untuk berkas teks).
+ * Backend: menunggu layanan ekstraksi/OCR — sementara null.
+ */
+export async function fetchDocumentContent(documentId: string): Promise<string | null> {
+  if (!env.USE_MOCKS) return null;
+  return getContent(documentId);
 }
