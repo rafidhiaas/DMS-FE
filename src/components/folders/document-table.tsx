@@ -4,6 +4,7 @@ import { Folder as FolderIcon } from "lucide-react";
 import { formatBytes, formatDate, STATUS_META } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { DocumentItem, Folder } from "@/types";
+import { Folder as FolderGlyph } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -39,9 +40,10 @@ export function DocumentTable({
   onToggle,
   onToggleAll,
   handlers,
+  showFolder = false,
 }: {
   folders: Folder[];
-  documents: DocumentItem[];
+  documents: Array<DocumentItem & { folder_name?: string }>;
   canWrite: boolean;
   canDelete: boolean;
   selectable: boolean;
@@ -49,6 +51,8 @@ export function DocumentTable({
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   handlers: ItemHandlers;
+  /** Kolom folder asal (daftar lintas folder). */
+  showFolder?: boolean;
 }) {
   const allSelected = documents.length > 0 && documents.every((d) => selected.has(d.id));
   const someSelected = documents.some((d) => selected.has(d.id));
@@ -70,6 +74,7 @@ export function DocumentTable({
               </TableHead>
             )}
             <TableHead className={cn(!selectable && "pl-4")}>Nama</TableHead>
+            {showFolder && <TableHead>Folder</TableHead>}
             <TableHead>Status</TableHead>
             <TableHead>Tipe</TableHead>
             <TableHead className="text-right">Ukuran</TableHead>
@@ -94,6 +99,7 @@ export function DocumentTable({
                   <span className="max-w-72 truncate font-medium">{f.name}</span>
                 </div>
               </TableCell>
+              {showFolder && <TableCell className="text-muted-foreground">—</TableCell>}
               <TableCell className="text-muted-foreground">—</TableCell>
               <TableCell className="font-mono text-[11px] uppercase text-muted-foreground">Folder</TableCell>
               <TableCell className="text-right text-muted-foreground">—</TableCell>
@@ -143,6 +149,14 @@ export function DocumentTable({
                     </span>
                   </div>
                 </TableCell>
+                {showFolder && (
+                  <TableCell className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <FolderGlyph className="size-3.5 text-amber-600 dark:text-amber-400" />
+                      {d.folder_name ?? "—"}
+                    </span>
+                  </TableCell>
+                )}
                 <TableCell>
                   <Badge variant="secondary" className={status.className}>
                     {status.label}

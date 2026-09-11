@@ -8,7 +8,10 @@ import type {
   DocumentMetaPatch,
   BulkMetaPatch,
   MetaKind,
+  DocumentListItem,
+  DocumentStatus,
 } from "@/types";
+import { findTransition } from "@/lib/workflow";
 import { recordActivity } from "@/lib/mocks/audit-store";
 import { getMockActor } from "@/lib/mocks/actor";
 import { putFile, deleteFiles } from "@/lib/mocks/file-store";
@@ -446,6 +449,64 @@ export const mockStore = {
     await deleteFiles(versionIds);
     recordActivity("DELETE_DOCUMENT", `Mengosongkan Sampah (${trashed.length} dokumen dihapus permanen)`);
     return delay(trashed.length);
+  },
+
+  /** Seluruh dokumen aktif lintas folder (halaman Semua Dokumen). */
+  async listAllDocuments(): Promise<DocumentListItem[]> {
+    const data = load();
+    const items = data.documents
+      .filter((d) => !d.deleted_at)
+      .map<DocumentListItem>((d) => ({
+        ...d,
+        folder_name: data.folders.find((f) => f.id === d.folder_id)?.name ?? "—",
+      }))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    return delay(items);
+  },
+
+  /**
+   * Ubah status dokumen mengikuti aturan alur (lib/workflow.ts). Peran diambil dari actor mock.
+   * Alasan (mis. tolak) dicatat di audit; catatan dokumen dibuat oleh pemanggil (api layer).
+   */
+  async setStatus(id: string, status: DocumentStatus, note?: string): Promise<DocumentItem> {
+    const data = load();
+    const doc = data.documents.find((d) => d.id === id && !d.deleted_at);
+    if (!doc) throw new Error("Dokumen tidak ditemukan.");
+    const actor = getMockActor();
+    const rule = findTransition(doc.status, status, actor.role);
+    if (!rule) throw new Error(`Perubahan status ${doc.status} → ${status} tidak diizinkan untuk peran Anda.`);
+    doc.status = status;
+    doc.updated_at = new Date().toISOString();
+    save(data);
+    recordActivity(
+      rule.audit,
+      `${rule.label} dokumen "${doc.title}"${note ? ` — ${note}` : ""}`,
+      { document_id: id },
+    );
+    return delay(doc);
+  },
+
+  /** Ubah status massal; transisi yang tidak sah dilewati (tidak menggagalkan semuanya). */
+  async bulkSetStatus(ids: string[], status: DocumentStatus): Promise<{ changed: number; skipped: number }> {
+    const data = load();
+    const actor = getMockActor();
+    const set = new Set(ids);
+    let changed = 0;
+    let skipped = 0;
+    for (const doc of data.documents) {
+      if (!set.has(doc.id) || doc.deleted_at) continue;
+      const rule = findTransition(doc.status, status, actor.role);
+      if (!rule) {
+        skipped += 1;
+        continue;
+      }
+      doc.status = status;
+      doc.updated_at = new Date().toISOString();
+      recordActivity(rule.audit, `${rule.label} dokumen "${doc.title}" (aksi massal)`, { document_id: doc.id });
+      changed += 1;
+    }
+    if (changed > 0) save(data);
+    return delay({ changed, skipped });
   },
 
   /** Ubah metadata satu dokumen (tag, tipe, pihak, tanggal dokumen, ASN, deskripsi). */

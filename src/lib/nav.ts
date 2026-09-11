@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   FolderTree,
+  Files,
   Share2,
   ScrollText,
   Users,
@@ -23,6 +24,7 @@ const ALL: Role[] = ["SUPER_ADMIN", "COMPANY_ADMIN", "AUDITOR", "EMPLOYEE"];
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL },
   { label: "Folder & Dokumen", href: "/folders", icon: FolderTree, roles: ALL },
+  { label: "Semua Dokumen", href: "/documents", icon: Files, roles: ALL },
   { label: "Dibagikan ke Saya", href: "/shared", icon: Share2, roles: ALL },
   { label: "Metadata", href: "/metadata", icon: Tags, roles: ALL },
   {

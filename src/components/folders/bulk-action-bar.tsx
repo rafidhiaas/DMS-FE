@@ -1,6 +1,18 @@
 "use client";
 
-import { Download, FolderInput, Loader2, Tags, Trash2, X } from "lucide-react";
+import { ChevronDown, CircleDot, Download, FolderInput, Loader2, Tags, Trash2, X } from "lucide-react";
+import { STATUS_META } from "@/lib/format";
+import type { DocumentStatus } from "@/types";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -19,6 +31,7 @@ export function BulkActionBar({
   onMove,
   onEditMeta,
   onDelete,
+  onSetStatus,
 }: {
   count: number;
   total: number;
@@ -31,6 +44,8 @@ export function BulkActionBar({
   onMove: () => void;
   onEditMeta: () => void;
   onDelete: () => void;
+  /** Ubah status massal (admin). Transisi tak sah dilewati oleh store. */
+  onSetStatus?: (status: DocumentStatus) => void;
 }) {
   return (
     <div
@@ -63,6 +78,25 @@ export function BulkActionBar({
               Pindahkan
             </Button>
           </>
+        )}
+        {onSetStatus && (
+          <DropdownMenu>
+            <DropdownMenuTrigger disabled={busy} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+              <CircleDot className="size-3.5" />
+              Status
+              <ChevronDown className="size-3 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Ubah status menjadi</DropdownMenuLabel>
+                {(Object.keys(STATUS_META) as DocumentStatus[]).map((s) => (
+                  <DropdownMenuItem key={s} onClick={() => onSetStatus(s)}>
+                    {STATUS_META[s].label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         {canDelete && (
           <Button variant="destructive" size="sm" disabled={busy} onClick={onDelete}>

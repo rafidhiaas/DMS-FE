@@ -736,7 +736,7 @@ function FolderCard({
   );
 }
 
-function DocumentCard({
+export function DocumentCard({
   doc,
   canWrite,
   canDelete,
@@ -748,8 +748,11 @@ function DocumentCard({
   onRename,
   onMove,
   onDelete,
+  folderName,
 }: {
   doc: DocumentItem;
+  /** Nama folder asal (daftar lintas folder). */
+  folderName?: string;
   canWrite: boolean;
   canDelete: boolean;
   selectable: boolean;
@@ -796,6 +799,12 @@ function DocumentCard({
           <span>{formatBytes(doc.size_bytes)}</span>
           <span>·</span>
           <span>v{doc.current_version}</span>
+          {folderName && (
+            <>
+              <span>·</span>
+              <span className="truncate">{folderName}</span>
+            </>
+          )}
         </div>
         <DocumentTags tagIds={doc.tag_ids} className="mt-1.5" />
       </div>

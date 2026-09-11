@@ -21,7 +21,8 @@ export function SavedViewsNav({ onNavigate }: { onNavigate?: () => void }) {
       <p className="eyebrow mb-2 px-3 text-sidebar-muted/80">Tampilan tersimpan</p>
       <nav aria-label="Tampilan tersimpan" className="flex flex-col gap-0.5">
         {items.map((v) => {
-          const active = activeId === v.id && pathname === `/folders/${v.folderId}`;
+          const active =
+            activeId === v.id && pathname === (v.folderId === "all" ? "/documents" : `/folders/${v.folderId}`);
           return (
             <Link
               key={v.id}

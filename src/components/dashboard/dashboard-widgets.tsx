@@ -4,6 +4,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowUpRight, Bookmark, Clock, X } from "lucide-react";
 import { useFolderContents } from "@/hooks/use-folders";
+import { useAllDocuments } from "@/hooks/use-documents";
 import { applyDocumentFilters } from "@/lib/list-filters";
 import { useSavedViews, savedViewHref, type SavedView } from "@/lib/saved-views";
 import { useRecentDocuments } from "@/lib/recent-docs";
@@ -41,7 +42,12 @@ export function SavedViewPanels() {
 }
 
 function SavedViewPanel({ view, onRemove }: { view: SavedView; onRemove: () => void }) {
-  const contents = useFolderContents(view.folderId);
+  const isGlobal = view.folderId === "all";
+  const folderContents = useFolderContents(isGlobal ? "root" : view.folderId);
+  const allDocs = useAllDocuments(isGlobal);
+  const contents = isGlobal
+    ? { data: allDocs.data ? { documents: allDocs.data } : undefined, isLoading: allDocs.isLoading, isError: allDocs.isError }
+    : folderContents;
   const docs = contents.data ? applyDocumentFilters(contents.data.documents, view.filters) : [];
   const shown = docs.slice(0, LIMIT);
 

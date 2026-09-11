@@ -5,7 +5,7 @@ import type { DocumentItem, DocumentStatus, Folder } from "@/types";
  * belum punya parameter filter/sort pada GET /folders/:id.
  */
 
-export type SortKey = "name" | "updated" | "size";
+export type SortKey = "name" | "updated" | "size" | "date";
 export type ViewMode = "grid" | "table";
 
 export const VIEW_MODES: readonly ViewMode[] = ["grid", "table"];
@@ -19,6 +19,9 @@ export interface ListFilters {
   tagIds: string[];
   typeIds: string[];
   correspondentIds: string[];
+  /** Rentang tanggal (YYYY-MM-DD, inklusif) terhadap tanggal dokumen — jatuh ke tanggal dibuat bila kosong. */
+  dateFrom: string;
+  dateTo: string;
 }
 
 export const EMPTY_FILTERS: ListFilters = {
@@ -29,7 +32,18 @@ export const EMPTY_FILTERS: ListFilters = {
   tagIds: [],
   typeIds: [],
   correspondentIds: [],
+  dateFrom: "",
+  dateTo: "",
 };
+
+function inDateRange(d: DocumentItem, f: ListFilters): boolean {
+  if (!f.dateFrom && !f.dateTo) return true;
+  const raw = d.document_date ?? d.created_at;
+  const day = raw.slice(0, 10);
+  if (f.dateFrom && day < f.dateFrom) return false;
+  if (f.dateTo && day > f.dateTo) return false;
+  return true;
+}
 
 /** Lengkapi filter lama (mis. dari Tampilan Tersimpan versi sebelumnya) dengan kunci baru. */
 export function normalizeFilters(f: Partial<ListFilters> | undefined): ListFilters {
@@ -37,12 +51,19 @@ export function normalizeFilters(f: Partial<ListFilters> | undefined): ListFilte
 }
 
 function hasMetaFilters(f: ListFilters): boolean {
-  return f.tagIds.length > 0 || f.typeIds.length > 0 || f.correspondentIds.length > 0;
+  return (
+    f.tagIds.length > 0 ||
+    f.typeIds.length > 0 ||
+    f.correspondentIds.length > 0 ||
+    f.dateFrom !== "" ||
+    f.dateTo !== ""
+  );
 }
 
 export const SORT_LABELS: Record<SortKey, string> = {
   name: "Nama (A–Z)",
   updated: "Terbaru diperbarui",
+  date: "Tanggal dokumen terbaru",
   size: "Ukuran terbesar",
 };
 
@@ -70,7 +91,7 @@ export function applyFolderFilters(folders: Folder[], f: ListFilters): Folder[] 
   return out;
 }
 
-export function applyDocumentFilters(docs: DocumentItem[], f: ListFilters): DocumentItem[] {
+export function applyDocumentFilters<T extends DocumentItem>(docs: T[], f: ListFilters): T[] {
   const q = f.query.trim().toLowerCase();
   const out = docs.filter(
     (d) =>
@@ -80,9 +101,12 @@ export function applyDocumentFilters(docs: DocumentItem[], f: ListFilters): Docu
       (f.tagIds.length === 0 || (d.tag_ids ?? []).some((t) => f.tagIds.includes(t))) &&
       (f.typeIds.length === 0 || (d.document_type_id != null && f.typeIds.includes(d.document_type_id))) &&
       (f.correspondentIds.length === 0 ||
-        (d.correspondent_id != null && f.correspondentIds.includes(d.correspondent_id))),
+        (d.correspondent_id != null && f.correspondentIds.includes(d.correspondent_id))) &&
+      inDateRange(d, f),
   );
   if (f.sort === "updated") out.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  else if (f.sort === "date")
+    out.sort((a, b) => (b.document_date ?? b.created_at).localeCompare(a.document_date ?? a.created_at));
   else if (f.sort === "size") out.sort((a, b) => Number(b.size_bytes) - Number(a.size_bytes));
   else out.sort((a, b) => a.title.localeCompare(b.title));
   return out;

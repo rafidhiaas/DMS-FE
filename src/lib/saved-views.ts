@@ -65,7 +65,7 @@ export function getSavedView(id: string | null | undefined): SavedView | null {
 }
 
 export function savedViewHref(view: SavedView): string {
-  return `/folders/${view.folderId}?view=${view.id}`;
+  return view.folderId === "all" ? `/documents?view=${view.id}` : `/folders/${view.folderId}?view=${view.id}`;
 }
 
 function uuid(): string {

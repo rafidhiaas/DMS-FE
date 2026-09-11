@@ -2,12 +2,22 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as documentsApi from "@/lib/api/documents";
-import type { BulkMetaPatch, DocumentMetaPatch } from "@/types";
+import type { BulkMetaPatch, DocumentMetaPatch, DocumentStatus } from "@/types";
 
 export const documentKeys = {
   detail: (id: string) => ["document", id] as const,
   trash: ["trash"] as const,
+  all: ["all-documents"] as const,
 };
+
+/** Seluruh dokumen lintas folder (halaman Semua Dokumen & panel tampilan global). */
+export function useAllDocuments(enabled = true) {
+  return useQuery({
+    queryKey: documentKeys.all,
+    queryFn: documentsApi.fetchAllDocuments,
+    enabled,
+  });
+}
 
 export function useDocument(id: string) {
   return useQuery({
@@ -20,8 +30,11 @@ export function useCreateDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: documentsApi.createDocument,
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["folder-contents"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
+      qc.invalidateQueries({ queryKey: ["dms-stats"] });
+    },
   });
 }
 
@@ -34,6 +47,7 @@ export function useRenameDocument() {
       qc.invalidateQueries({ queryKey: ["folder-contents"] });
       qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
       qc.invalidateQueries({ queryKey: ["document-history", id] });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
@@ -45,6 +59,7 @@ export function useDeleteDocument() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["folder-contents"] });
       qc.invalidateQueries({ queryKey: documentKeys.trash });
+      qc.invalidateQueries({ queryKey: documentKeys.all });
     },
   });
 }
@@ -65,6 +80,7 @@ function useInvalidateTrash() {
     qc.invalidateQueries({ queryKey: documentKeys.trash });
     qc.invalidateQueries({ queryKey: ["folder-contents"] });
     qc.invalidateQueries({ queryKey: ["dms-stats"] });
+    qc.invalidateQueries({ queryKey: documentKeys.all });
   };
 }
 
@@ -156,5 +172,40 @@ export function useBulkUpdateMeta() {
       qc.invalidateQueries({ queryKey: ["document"] });
       qc.invalidateQueries({ queryKey: ["meta"] });
     },
+  });
+}
+
+/* -------------------------------- Status -------------------------------- */
+
+function useInvalidateStatus() {
+  const qc = useQueryClient();
+  return (id?: string) => {
+    qc.invalidateQueries({ queryKey: ["folder-contents"] });
+    qc.invalidateQueries({ queryKey: documentKeys.all });
+    qc.invalidateQueries({ queryKey: ["dms-stats"] });
+    qc.invalidateQueries({ queryKey: ["pending-review"] });
+    qc.invalidateQueries({ queryKey: ["recent-documents"] });
+    qc.invalidateQueries({ queryKey: ["document"] });
+    qc.invalidateQueries({ queryKey: ["document-history"] });
+    qc.invalidateQueries({ queryKey: ["document-notes"] });
+    if (id) qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
+  };
+}
+
+export function useSetDocumentStatus() {
+  const invalidate = useInvalidateStatus();
+  return useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: DocumentStatus; note?: string }) =>
+      documentsApi.setDocumentStatus(id, status, note),
+    onSuccess: (_d, { id }) => invalidate(id),
+  });
+}
+
+export function useBulkSetStatus() {
+  const invalidate = useInvalidateStatus();
+  return useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: DocumentStatus }) =>
+      documentsApi.bulkSetStatus(ids, status),
+    onSuccess: () => invalidate(),
   });
 }

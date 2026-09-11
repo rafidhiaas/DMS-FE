@@ -82,6 +82,11 @@ export interface BulkMetaPatch {
   correspondent_id?: string | null;
 }
 
+/** Dokumen pada daftar lintas folder (halaman Semua Dokumen). */
+export interface DocumentListItem extends DocumentItem {
+  folder_name: string;
+}
+
 /** Entri halaman Sampah: dokumen + nama folder asal + jadwal pembersihan otomatis. */
 export interface TrashItem extends DocumentItem {
   folder_name: string;

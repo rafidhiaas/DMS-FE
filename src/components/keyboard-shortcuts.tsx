@@ -17,6 +17,8 @@ import {
 const GO_KEYS: Record<string, string> = {
   d: "/dashboard",
   f: "/folders",
+  o: "/documents",
+  m: "/metadata",
   s: "/shared",
   a: "/audit",
   u: "/users",

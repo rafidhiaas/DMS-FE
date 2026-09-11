@@ -8,7 +8,11 @@ import type {
   TrashItem,
   DocumentMetaPatch,
   BulkMetaPatch,
+  DocumentListItem,
+  DocumentStatus,
 } from "@/types";
+import { fetchAllFolders, fetchFolderContents } from "@/lib/api/folders";
+import { mockNotesStore } from "@/lib/mocks/notes-store";
 
 /** Lapisan akses data Dokumen (mock ↔ backend Express). */
 
@@ -122,4 +126,54 @@ export async function bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promi
   if (env.USE_MOCKS) return mockStore.bulkUpdateMeta(ids, patch);
   const { data } = await api.post<{ updated: number }>("/documents/bulk-meta", { ids, ...patch });
   return data.updated;
+}
+
+/* ------------------------- Semua dokumen & status --------------------------
+ * Backend belum punya endpoint list semua dokumen maupun ubah status.
+ * Usulan: GET /documents?all=1, PATCH /documents/:id/status {status, note}.
+ * Mode backend: daftar disusun dengan menelusuri semua folder (mahal, maks 300 folder).
+ * ------------------------------------------------------------------------- */
+
+export async function fetchAllDocuments(): Promise<DocumentListItem[]> {
+  if (env.USE_MOCKS) return mockStore.listAllDocuments();
+  const folders = await fetchAllFolders();
+  const out: DocumentListItem[] = [];
+  for (const f of folders) {
+    const contents = await fetchFolderContents(f.id);
+    for (const d of contents.documents) out.push({ ...d, folder_name: f.name });
+  }
+  return out.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
+export async function setDocumentStatus(
+  id: string,
+  status: DocumentStatus,
+  note?: string,
+): Promise<DocumentItem> {
+  if (env.USE_MOCKS) {
+    const doc = await mockStore.setStatus(id, status, note);
+    // Alasan penolakan ikut jadi catatan dokumen agar terlihat di tab Catatan.
+    if (note) await mockNotesStore.add(id, `[${status === "DRAFT" ? "Ditolak" : "Status"}] ${note}`);
+    return doc;
+  }
+  const { data } = await api.patch<{ document: DocumentItem }>(`/documents/${id}/status`, { status, note });
+  return data.document;
+}
+
+export async function bulkSetStatus(
+  ids: string[],
+  status: DocumentStatus,
+): Promise<{ changed: number; skipped: number }> {
+  if (env.USE_MOCKS) return mockStore.bulkSetStatus(ids, status);
+  let changed = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    try {
+      await setDocumentStatus(id, status);
+      changed += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  return { changed, skipped };
 }

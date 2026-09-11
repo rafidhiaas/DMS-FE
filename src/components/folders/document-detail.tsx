@@ -86,6 +86,7 @@ import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-d
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { DocumentPreview } from "@/components/folders/document-preview";
 import { EditMetadataDialog } from "@/components/folders/edit-metadata-dialog";
+import { StatusActions } from "@/components/folders/status-actions";
 import { TagChip } from "@/components/metadata/tag-chip";
 import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
 import { ShareDialog } from "@/components/shares/share-dialog";
@@ -251,6 +252,7 @@ export function DocumentDetail({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <StatusActions documentId={documentId} status={doc.status} role={role} />
             <Button variant="outline" onClick={handleDownload}>
               <Download className="size-4" />
               Unduh

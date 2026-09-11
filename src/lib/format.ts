@@ -116,6 +116,12 @@ export const AUDIT_ACTIONS = [
   "CREATE_META",
   "UPDATE_META",
   "DELETE_META",
+  "SUBMIT_REVIEW",
+  "WITHDRAW_REVIEW",
+  "APPROVE_DOCUMENT",
+  "REJECT_DOCUMENT",
+  "ARCHIVE_DOCUMENT",
+  "UNARCHIVE_DOCUMENT",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -148,6 +154,12 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   CREATE_META: "Buat Metadata",
   UPDATE_META: "Ubah Metadata Master",
   DELETE_META: "Hapus Metadata Master",
+  SUBMIT_REVIEW: "Ajukan Review",
+  WITHDRAW_REVIEW: "Tarik Pengajuan",
+  APPROVE_DOCUMENT: "Setujui Dokumen",
+  REJECT_DOCUMENT: "Tolak Dokumen",
+  ARCHIVE_DOCUMENT: "Arsipkan Dokumen",
+  UNARCHIVE_DOCUMENT: "Buka Arsip",
 };
 
 /** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */
@@ -160,9 +172,16 @@ export function actionMeta(action: string): { label: string; className: string }
     action === "REVOKE_SHARE_LINK" ||
     action === "DELETE_NOTE" ||
     action === "DELETE_META" ||
+    action === "REJECT_DOCUMENT" ||
     action === "LOGIN_FAILED"
   ) {
     return { label, className: "border-destructive/50 text-destructive" };
+  }
+  if (action === "APPROVE_DOCUMENT") {
+    return { label, className: "border-ok/60 text-ok" };
+  }
+  if (action === "SUBMIT_REVIEW") {
+    return { label, className: "border-warn/60 text-warn" };
   }
   if (action === "TRASH_DOCUMENT") {
     return { label, className: "border-warn/60 text-warn" };

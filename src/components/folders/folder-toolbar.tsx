@@ -4,6 +4,7 @@ import {
   ArrowUpDown,
   Bookmark,
   Building2,
+  Calendar,
   ChevronDown,
   CircleDot,
   FileType,
@@ -24,6 +25,7 @@ import {
   type ViewMode,
 } from "@/lib/list-filters";
 import { TagChip } from "@/components/metadata/tag-chip";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { DocumentStatus } from "@/types";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -57,6 +59,8 @@ export function FolderToolbar({
   activeViewName,
   onSaveView,
   onClearView,
+  showDateFilter = false,
+  searchPlaceholder = "Cari di folder ini…",
 }: {
   filters: ListFilters;
   onChange: (next: ListFilters) => void;
@@ -69,6 +73,9 @@ export function FolderToolbar({
   activeViewName?: string | null;
   onSaveView?: () => void;
   onClearView?: () => void;
+  /** Tampilkan filter rentang tanggal (halaman Semua Dokumen). */
+  showDateFilter?: boolean;
+  searchPlaceholder?: string;
 }) {
   const active = hasActiveFilters(filters);
   const tags = useTags();
@@ -86,8 +93,8 @@ export function FolderToolbar({
         <Input
           value={filters.query}
           onChange={(e) => onChange({ ...filters, query: e.target.value })}
-          placeholder="Cari di folder ini…"
-          aria-label="Cari di folder ini"
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
           className="pl-8"
         />
         {filters.query && (
@@ -194,6 +201,41 @@ export function FolderToolbar({
           </DropdownMenuCheckboxItem>
         ))}
       </FilterChip>
+
+      {showDateFilter && (
+        <FilterChip
+          icon={<Calendar className="size-3.5" />}
+          label="Tanggal"
+          count={(filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0)}
+        >
+          <DropdownMenuLabel>Tanggal dokumen</DropdownMenuLabel>
+          <div className="space-y-2 px-1.5 py-1" onKeyDown={(e) => e.stopPropagation()}>
+            <div className="space-y-1">
+              <Label htmlFor="date-from" className="text-xs">Dari</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={filters.dateFrom}
+                max={filters.dateTo || undefined}
+                onChange={(e) => onChange({ ...filters, dateFrom: e.target.value })}
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="date-to" className="text-xs">Sampai</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={filters.dateTo}
+                min={filters.dateFrom || undefined}
+                onChange={(e) => onChange({ ...filters, dateTo: e.target.value })}
+                className="h-8"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Memakai tanggal dokumen; bila kosong, tanggal dibuat.</p>
+          </div>
+        </FilterChip>
+      )}
 
       <FilterChip icon={<ArrowUpDown className="size-3.5" />} label={SORT_LABELS[filters.sort]}>
         <DropdownMenuLabel>Urutkan</DropdownMenuLabel>
