@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { navForRole } from "@/lib/nav";
+import { navGroupsForRole } from "@/lib/nav";
 import { useLocalPref } from "@/hooks/use-local-pref";
 import { ROLE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,7 @@ export function Wordmark({ className }: { className?: string }) {
   );
 }
 
-/** Daftar navigasi bernomor — dipakai sidebar desktop dan sheet mobile. Mode `slim` = ikon saja. */
+/** Daftar navigasi terkelompok dengan ikon — dipakai sidebar desktop dan sheet mobile. Mode `slim` = ikon saja. */
 export function NavList({
   role,
   onNavigate,
@@ -44,47 +44,38 @@ export function NavList({
   slim?: boolean;
 }) {
   const pathname = usePathname();
-  const items = navForRole(role);
+  const groups = navGroupsForRole(role);
 
   return (
-    <nav aria-label="Navigasi utama" className="flex flex-col gap-0.5">
-      {items.map((item, i) => {
-        const active =
-          pathname === item.href || pathname.startsWith(`${item.href}/`);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            title={slim ? item.label : undefined}
-            className={cn(
-              "group flex items-center gap-3 rounded-sm text-[14px] transition-colors",
-              slim ? "size-9 justify-center" : "px-3 py-2",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-            )}
-          >
-            {slim ? (
-              <Icon className={cn("size-4", active && "text-sidebar-primary")} />
-            ) : (
-              <>
-                <span
-                  className={cn(
-                    "w-5 font-mono text-[11px] tabular-nums",
-                    active ? "text-sidebar-primary" : "text-sidebar-muted/70",
-                  )}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span className={cn(active && "font-medium")}>{item.label}</span>
-              </>
-            )}
-          </Link>
-        );
-      })}
+    <nav aria-label="Navigasi utama" className={cn("flex flex-col", slim ? "gap-3" : "gap-4")}>
+      {groups.map((group) => (
+        <div key={group.key} className={cn("flex flex-col gap-0.5", slim && "items-center border-t border-sidebar-border pt-3 first:border-t-0 first:pt-0")}>
+          {!slim && <p className="eyebrow mb-1 px-3 text-sidebar-muted/80">{group.label}</p>}
+          {group.items.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                title={slim ? item.label : undefined}
+                className={cn(
+                  "group flex items-center gap-3 rounded-sm text-[14px] transition-colors",
+                  slim ? "size-9 justify-center" : "px-3 py-1.5",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                )}
+              >
+                <Icon className={cn("size-4 shrink-0", active ? "text-sidebar-primary" : "text-sidebar-muted/80 group-hover:text-sidebar-foreground")} />
+                {!slim && <span className={cn("truncate", active && "font-medium")}>{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
@@ -143,8 +134,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
         <ThemeToggle tone="sidebar" className="size-9" />
       </div>
 
-      <div className={cn("flex-1 overflow-y-auto px-3 py-5", slim && "flex flex-col items-center")}>
-        {!slim && <p className="eyebrow mb-2 px-3 text-sidebar-muted/80">Menu</p>}
+      <div className={cn("flex-1 overflow-y-auto px-3 py-4", slim && "flex flex-col items-center")}>
         <NavList role={user.role} slim={slim} />
         {!slim && <SavedViewsNav />}
       </div>

@@ -38,7 +38,6 @@ export function MobileNav({ user }: { user: SidebarUser }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-5">
-          <p className="eyebrow mb-2 px-3 text-sidebar-muted/80">Menu</p>
           <NavList role={user.role} onNavigate={() => setOpen(false)} />
           <SavedViewsNav onNavigate={() => setOpen(false)} />
         </div>

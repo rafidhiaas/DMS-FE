@@ -576,7 +576,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
       ) : view === "large" ? (
         <div className="space-y-3">
           {folders.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {folders.map((folder) => (
                 <FolderCard
                   key={folder.id}
@@ -609,19 +609,25 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {folders.map((folder) => (
-            <FolderCard
-              key={folder.id}
-              folder={folder}
-              canWrite={canWrite}
-              canDelete={canDelete}
-              onOpen={() => handlers.onOpen("folder", folder.id)}
-              onRename={() => handlers.onRename("folder", folder.id, folder.name)}
-              onMove={() => handlers.onMove("folder", folder.id, folder.name)}
-              onDelete={() => handlers.onDelete("folder", folder.id, folder.name)}
-            />
-          ))}
+        <div className="space-y-4">
+          {folders.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {folders.map((folder) => (
+                <FolderCard
+                  key={folder.id}
+                  folder={folder}
+                  canWrite={canWrite}
+                  canDelete={canDelete}
+                  onOpen={() => handlers.onOpen("folder", folder.id)}
+                  onRename={() => handlers.onRename("folder", folder.id, folder.name)}
+                  onMove={() => handlers.onMove("folder", folder.id, folder.name)}
+                  onDelete={() => handlers.onDelete("folder", folder.id, folder.name)}
+                />
+              ))}
+            </div>
+          )}
+          {docs.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {docs.map((doc) => (
             <DocumentCard
               key={doc.id}
@@ -638,6 +644,8 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
               onDelete={() => handlers.onDelete("document", doc.id, doc.title)}
             />
           ))}
+          </div>
+          )}
         </div>
       )}
 

@@ -43,7 +43,7 @@ export function DocumentCard(props: DocumentCardProps) {
         selected && "border-primary/60 ring-2 ring-primary/30",
       )}
     >
-      <DocumentThumbnail doc={doc} className="aspect-[4/3] w-full border-b" />
+      <DocumentThumbnail doc={doc} className="aspect-[3/4] w-full border-b" />
 
       {selectable && (
         <span
@@ -56,15 +56,15 @@ export function DocumentCard(props: DocumentCardProps) {
           <Checkbox aria-label={`Pilih ${doc.title}`} checked={selected} onCheckedChange={onToggle} />
         </span>
       )}
-      <span className="absolute top-2 right-2">
-        <Badge variant="secondary" className={cn("bg-background/90", status.className)}>
+      <span className="absolute top-1.5 right-1.5">
+        <Badge variant="secondary" className={cn("bg-background/90 px-1 text-[9.5px]", status.className)}>
           {status.label}
         </Badge>
       </span>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
-        <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 truncate font-medium" title={doc.title}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 p-2.5">
+        <div className="flex items-start gap-1">
+          <p className="min-w-0 flex-1 truncate text-[13px] font-medium" title={doc.title}>
             {doc.title}
           </p>
           <span className="-mr-1.5 -mt-1.5">
@@ -79,22 +79,15 @@ export function DocumentCard(props: DocumentCardProps) {
             />
           </span>
         </div>
-        <DocumentTags tagIds={doc.tag_ids} />
-        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
+        <DocumentTags tagIds={doc.tag_ids} max={2} />
+        <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
           <span className="uppercase">{doc.extension}</span>
           <span>·</span>
           <span>{formatBytes(doc.size_bytes)}</span>
           <span>·</span>
-          <span>v{doc.current_version}</span>
-          <span>·</span>
           <span>{formatDate(doc.document_date ?? doc.updated_at)}</span>
-          {folderName && (
-            <>
-              <span>·</span>
-              <span className="truncate">{folderName}</span>
-            </>
-          )}
         </div>
+        {folderName && <p className="truncate font-mono text-[10px] text-muted-foreground">{folderName}</p>}
       </div>
     </div>
   );
