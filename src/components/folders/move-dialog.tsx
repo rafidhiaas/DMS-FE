@@ -70,6 +70,7 @@ export function MoveDialog({
   currentFolderId,
   /** Izinkan tujuan Root (hanya untuk memindah folder; dokumen wajib di dalam folder). */
   allowRoot,
+  submitLabel = "Pindahkan",
   onSubmit,
   pending,
 }: {
@@ -80,6 +81,8 @@ export function MoveDialog({
   movingFolderId?: string;
   currentFolderId: string | null;
   allowRoot: boolean;
+  /** Teks tombol utama (dialog juga dipakai sebagai pemilih folder unggah). */
+  submitLabel?: string;
   onSubmit: (targetFolderId: string | null) => void;
   pending: boolean;
 }) {
@@ -156,7 +159,7 @@ export function MoveDialog({
             onClick={() => chosen && onSubmit(target)}
           >
             {pending && <Loader2 className="size-4 animate-spin" />}
-            Pindahkan
+            {submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

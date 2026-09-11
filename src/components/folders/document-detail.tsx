@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -86,6 +86,7 @@ import { DocumentPreview } from "@/components/folders/document-preview";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
 import { isExpired } from "@/lib/mocks/share-link-store";
+import { recordRecentDocument } from "@/lib/recent-docs";
 import { PageHeader } from "@/components/page-header";
 
 /**
@@ -113,6 +114,17 @@ export function DocumentDetail({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+
+  // Jejak "Terakhir dibuka" (localStorage) — bukan state React, aman di effect.
+  useEffect(() => {
+    if (!doc) return;
+    recordRecentDocument({
+      id: doc.id,
+      title: doc.title,
+      extension: doc.extension,
+      folder_name: doc.folder.name,
+    });
+  }, [doc]);
   const [versionOpen, setVersionOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 

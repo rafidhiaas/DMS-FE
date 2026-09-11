@@ -9,6 +9,7 @@ import type { Role } from "@/types";
 import { LogoutButton } from "@/components/logout-button";
 import { GlobalSearch } from "@/components/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SavedViewsNav } from "@/components/saved-views-nav";
 
 export interface SidebarUser {
   name: string;
@@ -108,6 +109,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
       <div className="flex-1 overflow-y-auto px-3 py-5">
         <p className="eyebrow mb-2 px-3 text-sidebar-muted/80">Menu</p>
         <NavList role={user.role} />
+        <SavedViewsNav />
       </div>
 
       <UserBlock user={user} />

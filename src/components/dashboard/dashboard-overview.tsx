@@ -26,6 +26,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { FileIcon } from "@/components/folders/file-icon";
 import { PageHeader, SectionHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { QuickUpload } from "@/components/dashboard/quick-upload";
+import { RecentlyOpened, SavedViewPanels, SavedViewsHint } from "@/components/dashboard/dashboard-widgets";
 
 const STATUS_ORDER: DocumentStatus[] = ["DRAFT", "PENDING_REVIEW", "APPROVED", "ARCHIVED"];
 
@@ -101,7 +103,9 @@ export function DashboardOverview({
   const totalActivity = (series.data ?? []).reduce((s, p) => s + p.count, 0);
 
   return (
-    <div className="space-y-12">
+    <QuickUpload enabled={canWrite}>
+      {(openPicker) => (
+        <div className="space-y-12">
       <PageHeader
         eyebrow={dateLabel}
         title={
@@ -119,10 +123,10 @@ export function DashboardOverview({
           <>
             {canWrite && (
               <>
-                <Link href="/folders" className={buttonVariants({ size: "lg" })}>
+                <button type="button" onClick={openPicker} className={buttonVariants({ size: "lg" })}>
                   <UploadCloud />
                   Unggah dokumen
-                </Link>
+                </button>
                 <Link
                   href="/folders"
                   className={buttonVariants({ variant: "outline", size: "lg" })}
@@ -176,6 +180,10 @@ export function DashboardOverview({
           </Link>
         ))}
       </section>
+
+      {/* Panel Tampilan Tersimpan (pola dashboard Paperless) */}
+      <SavedViewPanels />
+      <SavedViewsHint />
 
       {/* Status dokumen + aktivitas 7 hari */}
       <div className="rise-3 grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -280,7 +288,9 @@ export function DashboardOverview({
           </section>
         )}
 
-        <section>
+        <RecentlyOpened />
+
+        <section className="lg:col-span-2">
           <SectionHeader
             title="Aktivitas terbaru"
             action={canSeeAudit ? <MoreLink href="/audit">Audit log</MoreLink> : undefined}
@@ -316,7 +326,9 @@ export function DashboardOverview({
           )}
         </section>
       </div>
-    </div>
+        </div>
+      )}
+    </QuickUpload>
   );
 }
 

@@ -2,6 +2,7 @@
 
 import {
   ArrowUpDown,
+  Bookmark,
   ChevronDown,
   FileType,
   LayoutGrid,
@@ -48,6 +49,9 @@ export function FolderToolbar({
   onViewChange,
   total,
   shown,
+  activeViewName,
+  onSaveView,
+  onClearView,
 }: {
   filters: ListFilters;
   onChange: (next: ListFilters) => void;
@@ -56,6 +60,10 @@ export function FolderToolbar({
   onViewChange: (v: ViewMode) => void;
   total: number;
   shown: number;
+  /** Nama Tampilan Tersimpan yang sedang diterapkan (jika ada). */
+  activeViewName?: string | null;
+  onSaveView?: () => void;
+  onClearView?: () => void;
 }) {
   const active = hasActiveFilters(filters);
 
@@ -148,9 +156,38 @@ export function FolderToolbar({
         </Button>
       )}
 
+      {activeViewName && (
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 px-2 py-1 text-[12px] text-primary">
+          <Bookmark className="size-3.5" />
+          <span className="max-w-40 truncate">{activeViewName}</span>
+          {onClearView && (
+            <button
+              type="button"
+              aria-label="Lepas tampilan tersimpan"
+              onClick={onClearView}
+              className="rounded-sm opacity-70 hover:opacity-100"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </span>
+      )}
+
       <span className="ml-auto font-mono text-[11px] text-muted-foreground">
         {active ? `${shown} dari ${total}` : `${total} item`}
       </span>
+
+      {onSaveView && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onSaveView}
+          title="Simpan filter & urutan ini sebagai Tampilan Tersimpan"
+        >
+          <Bookmark className="size-3.5" />
+          <span className="hidden sm:inline">Simpan tampilan</span>
+        </Button>
+      )}
 
       <div
         role="group"

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CornerDownLeft, Folder as FolderIcon, Search } from "lucide-react";
+import { Clock, CornerDownLeft, Folder as FolderIcon, Search } from "lucide-react";
+import { useRecentDocuments } from "@/lib/recent-docs";
 import { useSearch } from "@/hooks/use-search";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatDate, STATUS_META } from "@/lib/format";
@@ -83,6 +84,7 @@ function SearchPanel({ onClose }: { onClose: () => void }) {
   const [active, setActive] = useState(0);
   const debounced = useDebounced(query, 150);
   const search = useSearch(debounced);
+  const recent = useRecentDocuments();
 
   const results = search.data ?? [];
   const folders = results.filter((r) => r.kind === "folder");
@@ -94,16 +96,25 @@ function SearchPanel({ onClose }: { onClose: () => void }) {
     router.push(r.kind === "folder" ? `/folders/${r.id}` : `/documents/${r.id}`);
   }
 
+  const showingRecent = debounced.trim().length < 2 && query.trim() === "" && recent.length > 0;
+  const listLength = showingRecent ? recent.length : ordered.length;
+
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((i) => Math.min(i + 1, ordered.length - 1));
+      setActive((i) => Math.min(i + 1, listLength - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && ordered[active]) {
-      e.preventDefault();
-      go(ordered[active]);
+    } else if (e.key === "Enter") {
+      if (showingRecent && recent[active]) {
+        e.preventDefault();
+        onClose();
+        router.push(`/documents/${recent[active].id}`);
+      } else if (ordered[active]) {
+        e.preventDefault();
+        go(ordered[active]);
+      }
     }
   }
 
@@ -132,9 +143,34 @@ function SearchPanel({ onClose }: { onClose: () => void }) {
 
       <div className="max-h-[50vh] overflow-y-auto p-2">
         {tooShort ? (
-          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-            Ketik minimal dua huruf untuk mulai mencari.
-          </p>
+          recent.length > 0 && query.trim() === "" ? (
+            <Group label="Terakhir dibuka" count={recent.length}>
+              {recent.map((d, i) => (
+                <Row
+                  key={d.id}
+                  active={i === active}
+                  onHover={() => setActive(i)}
+                  onSelect={() => {
+                    onClose();
+                    router.push(`/documents/${d.id}`);
+                  }}
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <FileIcon extension={d.extension} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{d.title}</span>
+                    <span className="block truncate font-mono text-[11px] text-muted-foreground">{d.folder_name}</span>
+                  </span>
+                  <Clock className="size-3.5 text-muted-foreground" />
+                </Row>
+              ))}
+            </Group>
+          ) : (
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+              Ketik minimal dua huruf untuk mulai mencari.
+            </p>
+          )
         ) : search.isError ? (
           <p className="px-2 py-6 text-center text-xs text-destructive">
             {getApiErrorMessage(search.error, "Pencarian gagal.")}

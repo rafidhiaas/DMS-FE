@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Folder as FolderIcon, FolderPlus, UploadCloud } from "lucide-react";
 import {
@@ -19,6 +19,7 @@ import {
   useMoveDocument,
 } from "@/hooks/use-documents";
 import { useLocalPref } from "@/hooks/use-local-pref";
+import { getSavedView, useSavedViews } from "@/lib/saved-views";
 import { downloadDocument } from "@/lib/download";
 import { formatBytes, formatDate, STATUS_META } from "@/lib/format";
 import {
@@ -46,6 +47,7 @@ import { FolderToolbar } from "@/components/folders/folder-toolbar";
 import { DocumentTable, type ItemHandlers } from "@/components/folders/document-table";
 import { BulkActionBar } from "@/components/folders/bulk-action-bar";
 import { MoveDialog } from "@/components/folders/move-dialog";
+import { SaveViewDialog } from "@/components/folders/save-view-dialog";
 import {
   CreateFolderDialog,
   CreateDocumentDialog,
@@ -63,6 +65,10 @@ const VIEW_PREF_KEY = "dms_folder_view";
 export function FolderBrowser({ folderId, role }: { folderId: string; role: Role }) {
   const router = useRouter();
   const isRoot = folderId === "root";
+  const searchParams = useSearchParams();
+  const requestedViewId = searchParams.get("view");
+  const savedViews = useSavedViews();
+  const activeView = savedViews.views.find((v) => v.id === requestedViewId && v.folderId === folderId) ?? null;
 
   const canWrite = role !== "AUDITOR";
   const canDelete = role === "SUPER_ADMIN" || role === "COMPANY_ADMIN";
@@ -90,8 +96,22 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
 
-  const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
-  const [view, setView] = useLocalPref<ViewMode>(VIEW_PREF_KEY, "grid", VIEW_MODES);
+  // Tampilan Tersimpan: filter awal dibaca sinkron dari localStorage (komponen di-remount via key per ?view=).
+  const [filters, setFilters] = useState<ListFilters>(() => {
+    const v = getSavedView(requestedViewId);
+    return v && v.folderId === folderId ? v.filters : EMPTY_FILTERS;
+  });
+  const [prefView, setPrefView] = useLocalPref<ViewMode>(VIEW_PREF_KEY, "grid", VIEW_MODES);
+  const [viewOverride, setViewOverride] = useState<ViewMode | null>(() => {
+    const v = getSavedView(requestedViewId);
+    return v && v.folderId === folderId ? v.view : null;
+  });
+  const view = viewOverride ?? prefView;
+  const setView = (next: ViewMode) => {
+    setViewOverride(null);
+    setPrefView(next);
+  };
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -198,6 +218,19 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         onError: (e) => toast.error(e.message),
       },
     );
+  }
+
+  function handleSaveView(input: { name: string; showInSidebar: boolean; showOnDashboard: boolean }) {
+    const created = savedViews.add({
+      ...input,
+      folderId,
+      folderName: pathQuery.data?.at(-1)?.name ?? "Folder",
+      filters,
+      view,
+    });
+    setSaveViewOpen(false);
+    toast.success(`Tampilan “${created.name}” disimpan.`);
+    router.replace(`/folders/${folderId}?view=${created.id}`);
   }
 
   function openUploadDialog(file: File | null) {
@@ -467,6 +500,9 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
             onViewChange={setView}
             total={allFolders.length + allDocs.length}
             shown={folders.length + docs.length}
+            activeViewName={activeView?.name ?? null}
+            onSaveView={isRoot ? undefined : () => setSaveViewOpen(true)}
+            onClearView={activeView ? () => router.replace(`/folders/${folderId}`) : undefined}
           />
         ))}
 
@@ -600,6 +636,15 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         }
         onConfirm={handleDelete}
         pending={bulkBusy || deleteFolder.isPending || deleteDocument.isPending}
+      />
+      <SaveViewDialog
+        key={`sv-${saveViewOpen}`}
+        open={saveViewOpen}
+        onOpenChange={setSaveViewOpen}
+        folderName={pathQuery.data?.at(-1)?.name ?? "Folder"}
+        filters={filters}
+        view={view}
+        onSubmit={handleSaveView}
       />
       <MoveDialog
         key={`mv-${moveTarget ? (moveTarget.kind === "bulk" ? "bulk" : moveTarget.id) : "none"}`}
