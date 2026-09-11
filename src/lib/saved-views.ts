@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { EMPTY_FILTERS, type ListFilters, type ViewMode } from "@/lib/list-filters";
+import { EMPTY_FILTERS, normalizeFilters, type ListFilters, type ViewMode } from "@/lib/list-filters";
 
 /**
  * Tampilan Tersimpan (Saved Views) ala Paperless-ngx — filter + urutan + mode
@@ -31,7 +31,8 @@ function readAll(): SavedView[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw === cache.raw) return cache.views;
-    const views = raw ? (JSON.parse(raw) as SavedView[]) : EMPTY;
+    const parsed = raw ? (JSON.parse(raw) as SavedView[]) : EMPTY;
+    const views = parsed.map((v) => ({ ...v, filters: normalizeFilters(v.filters) }));
     cache = { raw, views };
     return views;
   } catch {

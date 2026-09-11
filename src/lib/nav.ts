@@ -5,6 +5,7 @@ import {
   ScrollText,
   Users,
   Trash2,
+  Tags,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/types";
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL },
   { label: "Folder & Dokumen", href: "/folders", icon: FolderTree, roles: ALL },
   { label: "Dibagikan ke Saya", href: "/shared", icon: Share2, roles: ALL },
+  { label: "Metadata", href: "/metadata", icon: Tags, roles: ALL },
   {
     label: "Audit Log",
     href: "/audit",

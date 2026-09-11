@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as documentsApi from "@/lib/api/documents";
+import type { BulkMetaPatch, DocumentMetaPatch } from "@/types";
 
 export const documentKeys = {
   detail: (id: string) => ["document", id] as const,
@@ -123,6 +124,37 @@ export function useUploadVersion() {
       qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
       qc.invalidateQueries({ queryKey: ["folder-contents"] });
       qc.invalidateQueries({ queryKey: ["document-history", id] });
+    },
+  });
+}
+
+/* ------------------------------- Metadata ------------------------------- */
+
+export function useUpdateDocumentMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: DocumentMetaPatch }) =>
+      documentsApi.updateDocumentMeta(id, patch),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: ["all-documents"] });
+      qc.invalidateQueries({ queryKey: ["meta"] });
+      qc.invalidateQueries({ queryKey: ["document-history", id] });
+    },
+  });
+}
+
+export function useBulkUpdateMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, patch }: { ids: string[]; patch: BulkMetaPatch }) =>
+      documentsApi.bulkUpdateMeta(ids, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: ["all-documents"] });
+      qc.invalidateQueries({ queryKey: ["document"] });
+      qc.invalidateQueries({ queryKey: ["meta"] });
     },
   });
 }

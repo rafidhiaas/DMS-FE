@@ -112,6 +112,10 @@ export const AUDIT_ACTIONS = [
   "MOVE_DOCUMENT",
   "ADD_NOTE",
   "DELETE_NOTE",
+  "UPDATE_DOCUMENT_META",
+  "CREATE_META",
+  "UPDATE_META",
+  "DELETE_META",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -140,6 +144,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   MOVE_DOCUMENT: "Pindah Dokumen",
   ADD_NOTE: "Tambah Catatan",
   DELETE_NOTE: "Hapus Catatan",
+  UPDATE_DOCUMENT_META: "Ubah Metadata",
+  CREATE_META: "Buat Metadata",
+  UPDATE_META: "Ubah Metadata Master",
+  DELETE_META: "Hapus Metadata Master",
 };
 
 /** Label + warna badge per action audit (fallback aman untuk action tak dikenal). */
@@ -151,6 +159,7 @@ export function actionMeta(action: string): { label: string; className: string }
     action === "REVOKE_SHARE" ||
     action === "REVOKE_SHARE_LINK" ||
     action === "DELETE_NOTE" ||
+    action === "DELETE_META" ||
     action === "LOGIN_FAILED"
   ) {
     return { label, className: "border-destructive/50 text-destructive" };

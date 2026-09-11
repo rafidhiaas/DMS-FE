@@ -37,6 +37,49 @@ export interface DocumentItem {
   updated_at: string;
   /** Terisi bila dokumen berada di Sampah (soft delete — FE mock; backend belum punya). */
   deleted_at?: string | null;
+  /* ---- Metadata ala Paperless (FE mock; backend belum punya kolomnya) ---- */
+  tag_ids?: string[];
+  document_type_id?: string | null;
+  correspondent_id?: string | null;
+  /** Tanggal dokumen (bukan tanggal unggah), ISO. */
+  document_date?: string | null;
+  /** Nomor arsip (Archive Serial Number). */
+  asn?: number | null;
+  description?: string | null;
+}
+
+/** Jenis metadata yang dikelola di halaman Metadata. */
+export type MetaKind = "tag" | "type" | "correspondent";
+
+/** Item metadata generik (Tag punya `color`). */
+export interface MetaItem {
+  id: string;
+  name: string;
+  color?: string;
+  created_at: string;
+  /** Jumlah dokumen yang memakainya (diisi saat list). */
+  document_count?: number;
+}
+export type Tag = MetaItem & { color: string };
+export type DocumentType = MetaItem;
+export type Correspondent = MetaItem;
+
+/** Patch metadata satu dokumen. */
+export interface DocumentMetaPatch {
+  tag_ids?: string[];
+  document_type_id?: string | null;
+  correspondent_id?: string | null;
+  document_date?: string | null;
+  asn?: number | null;
+  description?: string | null;
+}
+
+/** Patch metadata massal — hanya field yang diberikan yang diterapkan. */
+export interface BulkMetaPatch {
+  add_tag_ids?: string[];
+  remove_tag_ids?: string[];
+  document_type_id?: string | null;
+  correspondent_id?: string | null;
 }
 
 /** Entri halaman Sampah: dokumen + nama folder asal + jadwal pembersihan otomatis. */

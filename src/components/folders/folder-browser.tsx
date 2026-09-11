@@ -48,6 +48,8 @@ import { DocumentTable, type ItemHandlers } from "@/components/folders/document-
 import { BulkActionBar } from "@/components/folders/bulk-action-bar";
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { SaveViewDialog } from "@/components/folders/save-view-dialog";
+import { BulkMetadataDialog } from "@/components/folders/edit-metadata-dialog";
+import { DocumentTags } from "@/components/metadata/tag-chip";
 import {
   CreateFolderDialog,
   CreateDocumentDialog,
@@ -112,6 +114,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
     setPrefView(next);
   };
   const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [bulkMetaOpen, setBulkMetaOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -489,6 +492,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
             onClear={clearSelection}
             onDownload={handleBulkDownload}
             onMove={() => setMoveTarget({ kind: "bulk", ids: selectedIds })}
+            onEditMeta={() => setBulkMetaOpen(true)}
             onDelete={() => setDeleteTarget({ kind: "bulk", ids: selectedIds })}
           />
         ) : (
@@ -636,6 +640,13 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         }
         onConfirm={handleDelete}
         pending={bulkBusy || deleteFolder.isPending || deleteDocument.isPending}
+      />
+      <BulkMetadataDialog
+        key={`bm-${bulkMetaOpen}`}
+        documents={allDocs.filter((d) => selectedSet.has(d.id))}
+        open={bulkMetaOpen}
+        onOpenChange={setBulkMetaOpen}
+        onDone={clearSelection}
       />
       <SaveViewDialog
         key={`sv-${saveViewOpen}`}
@@ -786,6 +797,7 @@ function DocumentCard({
           <span>·</span>
           <span>v{doc.current_version}</span>
         </div>
+        <DocumentTags tagIds={doc.tag_ids} className="mt-1.5" />
       </div>
       <div className="flex items-center gap-1">
         <Badge variant="secondary" className={status.className}>

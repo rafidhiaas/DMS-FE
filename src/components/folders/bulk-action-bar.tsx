@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FolderInput, Loader2, Trash2, X } from "lucide-react";
+import { Download, FolderInput, Loader2, Tags, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -17,6 +17,7 @@ export function BulkActionBar({
   onClear,
   onDownload,
   onMove,
+  onEditMeta,
   onDelete,
 }: {
   count: number;
@@ -28,6 +29,7 @@ export function BulkActionBar({
   onClear: () => void;
   onDownload: () => void;
   onMove: () => void;
+  onEditMeta: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -51,10 +53,16 @@ export function BulkActionBar({
           Unduh
         </Button>
         {canWrite && (
-          <Button variant="outline" size="sm" disabled={busy} onClick={onMove}>
-            <FolderInput className="size-3.5" />
-            Pindahkan
-          </Button>
+          <>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onEditMeta}>
+              <Tags className="size-3.5" />
+              Metadata
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onMove}>
+              <FolderInput className="size-3.5" />
+              Pindahkan
+            </Button>
+          </>
         )}
         {canDelete && (
           <Button variant="destructive" size="sm" disabled={busy} onClick={onDelete}>

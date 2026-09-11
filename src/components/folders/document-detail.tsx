@@ -23,6 +23,7 @@ import {
   FolderInput,
   StickyNote,
   Send,
+  Tags,
 } from "lucide-react";
 import {
   useDocument,
@@ -38,6 +39,7 @@ import { useDocumentHistory } from "@/hooks/use-audit-logs";
 import { downloadDocument, downloadToast } from "@/lib/download";
 import {
   formatBytes,
+  formatDate,
   formatDateTime,
   formatRemaining,
   actionMeta,
@@ -83,6 +85,9 @@ import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
 import { MoveDialog } from "@/components/folders/move-dialog";
 import { DocumentPreview } from "@/components/folders/document-preview";
+import { EditMetadataDialog } from "@/components/folders/edit-metadata-dialog";
+import { TagChip } from "@/components/metadata/tag-chip";
+import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
 import { isExpired } from "@/lib/mocks/share-link-store";
@@ -331,7 +336,7 @@ export function DocumentDetail({
             </CardHeader>
             <CardContent className="pt-5">
               <TabsContent value="detail">
-                <DetailsTab doc={doc} />
+                <DetailsTab doc={doc} canWrite={canWrite} />
               </TabsContent>
               <TabsContent value="versions">
                 <VersionsTab doc={doc} />
@@ -440,41 +445,98 @@ function Field({ label, children, mono }: { label: string; children: React.React
 
 /* ------------------------------- Detail --------------------------------- */
 
-function DetailsTab({ doc }: { doc: DocumentDetailData }) {
+function DetailsTab({ doc, canWrite }: { doc: DocumentDetailData; canWrite: boolean }) {
   const status = STATUS_META[doc.status];
+  const tags = useTags();
+  const types = useDocumentTypes();
+  const correspondents = useCorrespondents();
+  const [editOpen, setEditOpen] = useState(false);
+
+  const docTags = (doc.tag_ids ?? [])
+    .map((id) => tags.data?.find((t) => t.id === id))
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+  const typeName = types.data?.find((t) => t.id === doc.document_type_id)?.name;
+  const corrName = correspondents.data?.find((c) => c.id === doc.correspondent_id)?.name;
+
   return (
-    <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
-      <Field label="Judul">{doc.title}</Field>
-      <Field label="Folder">
-        <Link
-          href={`/folders/${doc.folder_id}`}
-          className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
-        >
-          <FolderOpen className="size-4 text-muted-foreground" />
-          {doc.folder.name}
-        </Link>
-      </Field>
-      <Field label="Status">
-        <Badge variant="secondary" className={status.className}>
-          {status.label}
-        </Badge>
-      </Field>
-      <Field label="Versi terkini">
-        v{doc.current_version} dari {doc.versions.length} versi
-      </Field>
-      <Field label="Ekstensi" mono>
-        .{doc.extension}
-      </Field>
-      <Field label="Ukuran">{formatBytes(doc.size_bytes)}</Field>
-      <Field label="Dibuat">{formatDateTime(doc.created_at)}</Field>
-      <Field label="Diperbarui">{formatDateTime(doc.updated_at)}</Field>
-      <Field label="ID dokumen" mono>
-        {doc.id}
-      </Field>
-      <Field label="Kunci berkas" mono>
-        {doc.versions.find((v) => v.version_number === doc.current_version)?.s3_file_key ?? "—"}
-      </Field>
-    </dl>
+    <div className="space-y-5">
+      <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+        <Field label="Judul">{doc.title}</Field>
+        <Field label="Folder">
+          <Link
+            href={`/folders/${doc.folder_id}`}
+            className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
+          >
+            <FolderOpen className="size-4 text-muted-foreground" />
+            {doc.folder.name}
+          </Link>
+        </Field>
+        <Field label="Status">
+          <Badge variant="secondary" className={status.className}>
+            {status.label}
+          </Badge>
+        </Field>
+        <Field label="Versi terkini">
+          v{doc.current_version} dari {doc.versions.length} versi
+        </Field>
+        <Field label="Format" mono>
+          .{doc.extension}
+        </Field>
+        <Field label="Ukuran">{formatBytes(doc.size_bytes)}</Field>
+        <Field label="Dibuat">{formatDateTime(doc.created_at)}</Field>
+        <Field label="Diperbarui">{formatDateTime(doc.updated_at)}</Field>
+      </dl>
+
+      <div className="border-t border-rule pt-5">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            <Tags className="size-4 text-muted-foreground" />
+            Metadata
+          </h3>
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="size-3.5" />
+              Ubah metadata
+            </Button>
+          )}
+        </div>
+        <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+          <Field label="Tag">
+            {docTags.length === 0 ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <span className="flex flex-wrap gap-1">
+                {docTags.map((t) => (
+                  <TagChip key={t.id} tag={t} />
+                ))}
+              </span>
+            )}
+          </Field>
+          <Field label="Tipe dokumen">{typeName ?? <span className="text-muted-foreground">—</span>}</Field>
+          <Field label="Pihak">{corrName ?? <span className="text-muted-foreground">—</span>}</Field>
+          <Field label="Tanggal dokumen">
+            {doc.document_date ? formatDate(doc.document_date) : <span className="text-muted-foreground">—</span>}
+          </Field>
+          <Field label="Nomor arsip (ASN)" mono>
+            {doc.asn != null ? `#${doc.asn}` : <span className="font-sans text-muted-foreground">—</span>}
+          </Field>
+          <Field label="ID dokumen" mono>
+            {doc.id}
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Deskripsi">
+              {doc.description ? (
+                <span className="whitespace-pre-wrap">{doc.description}</span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </Field>
+          </div>
+        </dl>
+      </div>
+
+      <EditMetadataDialog key={`meta-${editOpen}`} doc={doc} open={editOpen} onOpenChange={setEditOpen} />
+    </div>
   );
 }
 

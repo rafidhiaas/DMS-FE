@@ -1,7 +1,14 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { mockStore } from "@/lib/mocks/dms-store";
-import type { DocumentItem, DocumentDetail, DocumentVersion, TrashItem } from "@/types";
+import type {
+  DocumentItem,
+  DocumentDetail,
+  DocumentVersion,
+  TrashItem,
+  DocumentMetaPatch,
+  BulkMetaPatch,
+} from "@/types";
 
 /** Lapisan akses data Dokumen (mock ↔ backend Express). */
 
@@ -98,4 +105,21 @@ export async function moveDocument(id: string, folder_id: string): Promise<Docum
     folder_id,
   });
   return data.document;
+}
+
+/* ------------------------------- Metadata --------------------------------
+ * Backend belum punya kolom tag/tipe/pihak/tanggal/ASN/deskripsi pada Document.
+ * Usulan endpoint: PATCH /documents/:id/meta, POST /documents/bulk-meta.
+ * ----------------------------------------------------------------------- */
+
+export async function updateDocumentMeta(id: string, patch: DocumentMetaPatch): Promise<DocumentItem> {
+  if (env.USE_MOCKS) return mockStore.updateDocumentMeta(id, patch);
+  const { data } = await api.patch<{ document: DocumentItem }>(`/documents/${id}/meta`, patch);
+  return data.document;
+}
+
+export async function bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promise<number> {
+  if (env.USE_MOCKS) return mockStore.bulkUpdateMeta(ids, patch);
+  const { data } = await api.post<{ updated: number }>("/documents/bulk-meta", { ids, ...patch });
+  return data.updated;
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { FileIcon } from "@/components/folders/file-icon";
 import { ItemActionsMenu } from "@/components/folders/item-actions-menu";
+import { DocumentTags } from "@/components/metadata/tag-chip";
 
 export interface ItemHandlers {
   onOpen: (kind: "folder" | "document", id: string) => void;
@@ -136,7 +137,10 @@ export function DocumentTable({
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
                       <FileIcon extension={d.extension} />
                     </span>
-                    <span className="max-w-72 truncate font-medium">{d.title}</span>
+                    <span className="min-w-0">
+                      <span className="block max-w-72 truncate font-medium">{d.title}</span>
+                      <DocumentTags tagIds={d.tag_ids} className="mt-0.5" />
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>

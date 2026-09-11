@@ -3,7 +3,9 @@
 import {
   ArrowUpDown,
   Bookmark,
+  Building2,
   ChevronDown,
+  CircleDot,
   FileType,
   LayoutGrid,
   List,
@@ -12,13 +14,16 @@ import {
   X,
 } from "lucide-react";
 import { STATUS_META } from "@/lib/format";
+import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
 import {
+  clearedFilters,
   hasActiveFilters,
   SORT_LABELS,
   type ListFilters,
   type SortKey,
   type ViewMode,
 } from "@/lib/list-filters";
+import { TagChip } from "@/components/metadata/tag-chip";
 import { cn } from "@/lib/utils";
 import type { DocumentStatus } from "@/types";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -66,6 +71,9 @@ export function FolderToolbar({
   onClearView?: () => void;
 }) {
   const active = hasActiveFilters(filters);
+  const tags = useTags();
+  const types = useDocumentTypes();
+  const correspondents = useCorrespondents();
 
   function toggle<T>(list: T[], value: T): T[] {
     return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
@@ -95,7 +103,7 @@ export function FolderToolbar({
       </div>
 
       <FilterChip
-        icon={<Tag className="size-3.5" />}
+        icon={<CircleDot className="size-3.5" />}
         label="Status"
         count={filters.statuses.length}
       >
@@ -113,11 +121,11 @@ export function FolderToolbar({
 
       <FilterChip
         icon={<FileType className="size-3.5" />}
-        label="Tipe"
+        label="Format"
         count={filters.extensions.length}
         disabled={availableExtensions.length === 0}
       >
-        <DropdownMenuLabel>Tipe berkas</DropdownMenuLabel>
+        <DropdownMenuLabel>Format berkas</DropdownMenuLabel>
         {availableExtensions.map((ext) => (
           <DropdownMenuCheckboxItem
             key={ext}
@@ -127,6 +135,62 @@ export function FolderToolbar({
             }
           >
             <span className="uppercase">{ext}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </FilterChip>
+
+      <FilterChip
+        icon={<Tag className="size-3.5" />}
+        label="Tag"
+        count={filters.tagIds.length}
+        disabled={(tags.data ?? []).length === 0}
+      >
+        <DropdownMenuLabel>Tag</DropdownMenuLabel>
+        {(tags.data ?? []).map((t) => (
+          <DropdownMenuCheckboxItem
+            key={t.id}
+            checked={filters.tagIds.includes(t.id)}
+            onCheckedChange={() => onChange({ ...filters, tagIds: toggle(filters.tagIds, t.id) })}
+          >
+            <TagChip tag={t} />
+          </DropdownMenuCheckboxItem>
+        ))}
+      </FilterChip>
+
+      <FilterChip
+        icon={<FileType className="size-3.5" />}
+        label="Tipe dokumen"
+        count={filters.typeIds.length}
+        disabled={(types.data ?? []).length === 0}
+      >
+        <DropdownMenuLabel>Tipe dokumen</DropdownMenuLabel>
+        {(types.data ?? []).map((t) => (
+          <DropdownMenuCheckboxItem
+            key={t.id}
+            checked={filters.typeIds.includes(t.id)}
+            onCheckedChange={() => onChange({ ...filters, typeIds: toggle(filters.typeIds, t.id) })}
+          >
+            {t.name}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </FilterChip>
+
+      <FilterChip
+        icon={<Building2 className="size-3.5" />}
+        label="Pihak"
+        count={filters.correspondentIds.length}
+        disabled={(correspondents.data ?? []).length === 0}
+      >
+        <DropdownMenuLabel>Pihak</DropdownMenuLabel>
+        {(correspondents.data ?? []).map((c) => (
+          <DropdownMenuCheckboxItem
+            key={c.id}
+            checked={filters.correspondentIds.includes(c.id)}
+            onCheckedChange={() =>
+              onChange({ ...filters, correspondentIds: toggle(filters.correspondentIds, c.id) })
+            }
+          >
+            {c.name}
           </DropdownMenuCheckboxItem>
         ))}
       </FilterChip>
@@ -149,7 +213,7 @@ export function FolderToolbar({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => onChange({ ...filters, query: "", statuses: [], extensions: [] })}
+          onClick={() => onChange(clearedFilters(filters))}
         >
           <X className="size-3.5" />
           Reset

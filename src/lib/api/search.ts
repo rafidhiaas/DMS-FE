@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { peekDocuments, peekFolders } from "@/lib/mocks/dms-store";
+import { peekMeta } from "@/lib/mocks/meta-store";
 import type { Folder, SearchResult } from "@/types";
 
 /**
@@ -46,6 +47,9 @@ async function mockSearch(query: string): Promise<SearchResult[]> {
   if (!q) return [];
   const folders = peekFolders();
   const documents = peekDocuments();
+  const tags = peekMeta("tag");
+  const types = peekMeta("type");
+  const correspondents = peekMeta("correspondent");
 
   const scored: Array<{ s: number; r: SearchResult }> = [];
   for (const f of folders) {
@@ -53,7 +57,18 @@ async function mockSearch(query: string): Promise<SearchResult[]> {
     if (s) scored.push({ s, r: { kind: "folder", id: f.id, name: f.name, path: folderPath(f, folders) } });
   }
   for (const d of documents) {
-    const s = Math.max(score(d.title, q), score(d.extension, q) * 0.5);
+    const tagScore = Math.max(0, ...(d.tag_ids ?? []).map((id) => score(tags.find((t) => t.id === id)?.name ?? "", q)));
+    const typeScore = score(types.find((t) => t.id === d.document_type_id)?.name ?? "", q);
+    const corrScore = score(correspondents.find((c) => c.id === d.correspondent_id)?.name ?? "", q);
+    const s = Math.max(
+      score(d.title, q),
+      score(d.extension, q) * 0.5,
+      score(d.description ?? "", q) * 0.6,
+      tagScore * 0.8,
+      typeScore * 0.7,
+      corrScore * 0.7,
+      d.asn != null && String(d.asn) === q ? 3 : 0,
+    );
     if (s) {
       const folder = folders.find((f) => f.id === d.folder_id);
       scored.push({

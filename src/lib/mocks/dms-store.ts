@@ -5,6 +5,9 @@ import type {
   DocumentDetail,
   FolderContents,
   TrashItem,
+  DocumentMetaPatch,
+  BulkMetaPatch,
+  MetaKind,
 } from "@/types";
 import { recordActivity } from "@/lib/mocks/audit-store";
 import { getMockActor } from "@/lib/mocks/actor";
@@ -55,9 +58,9 @@ function seed(): StoreShape {
   ];
 
   const documents: DocumentItem[] = [
-    { id: "seed-doc-1", title: "Laporan Keuangan Q4", extension: "pdf", size_bytes: "2411724", folder_id: fKeu2025, current_version: 2, status: "APPROVED", created_at: nowIso(14), updated_at: nowIso(1) },
-    { id: "seed-doc-2", title: "Anggaran Operasional", extension: "xlsx", size_bytes: "845000", folder_id: fKeuangan, current_version: 1, status: "DRAFT", created_at: nowIso(10), updated_at: nowIso(10) },
-    { id: "seed-doc-3", title: "Perjanjian Kerja Sama Vendor", extension: "docx", size_bytes: "1200500", folder_id: fLegal, current_version: 3, status: "PENDING_REVIEW", created_at: nowIso(9), updated_at: nowIso(1) },
+    { id: "seed-doc-1", title: "Laporan Keuangan Q4", extension: "pdf", size_bytes: "2411724", folder_id: fKeu2025, current_version: 2, status: "APPROVED", created_at: nowIso(14), updated_at: nowIso(1), tag_ids: ["seed-tag-keuangan", "seed-tag-2025"], document_type_id: "seed-type-laporan", correspondent_id: "seed-corr-bank", document_date: "2025-12-31T00:00:00.000Z", asn: 1001, description: "Laporan keuangan kuartal keempat beserta lampiran neraca dan arus kas." },
+    { id: "seed-doc-2", title: "Anggaran Operasional", extension: "xlsx", size_bytes: "845000", folder_id: fKeuangan, current_version: 1, status: "DRAFT", created_at: nowIso(10), updated_at: nowIso(10), tag_ids: ["seed-tag-keuangan"], document_type_id: "seed-type-anggaran", correspondent_id: null, document_date: null, asn: 1002, description: null },
+    { id: "seed-doc-3", title: "Perjanjian Kerja Sama Vendor", extension: "docx", size_bytes: "1200500", folder_id: fLegal, current_version: 3, status: "PENDING_REVIEW", created_at: nowIso(9), updated_at: nowIso(1), tag_ids: ["seed-tag-kontrak", "seed-tag-penting"], document_type_id: "seed-type-kontrak", correspondent_id: "seed-corr-mitra", document_date: "2026-08-15T00:00:00.000Z", asn: 1003, description: "Perjanjian kerja sama pengadaan dengan PT Mitra Sejahtera, masa berlaku 2 tahun." },
   ];
 
   const versions: DocumentVersion[] = [
@@ -96,7 +99,28 @@ function load(): StoreShape {
   }
   try {
     const data = JSON.parse(raw) as StoreShape;
-    if (purgeExpired(data)) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    let dirty = purgeExpired(data);
+    // Migrasi: data lama belum punya kolom metadata → isi default agar UI aman.
+    // Dokumen contoh (seed-doc-*) diisi ulang dari seed agar demo metadata tidak kosong.
+    const seedDocs = seed().documents;
+    for (const d of data.documents) {
+      if (!Array.isArray(d.tag_ids)) {
+        const sd = seedDocs.find((x) => x.id === d.id);
+        d.tag_ids = sd?.tag_ids ?? [];
+        d.document_type_id = sd?.document_type_id ?? null;
+        d.correspondent_id = sd?.correspondent_id ?? null;
+        d.document_date = sd?.document_date ?? null;
+        d.asn = sd?.asn ?? null;
+        d.description = sd?.description ?? null;
+        dirty = true;
+      }
+      if (d.document_type_id === undefined) d.document_type_id = null;
+      if (d.correspondent_id === undefined) d.correspondent_id = null;
+      if (d.document_date === undefined) d.document_date = null;
+      if (d.asn === undefined) d.asn = null;
+      if (d.description === undefined) d.description = null;
+    }
+    if (dirty) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     return data;
   } catch {
     const initial = seed();
@@ -139,6 +163,25 @@ export function peekDocuments(): DocumentItem[] {
 /** Baca daftar folder mentah secara sinkron (dipakai statistik dashboard mock). */
 export function peekFolders(): Folder[] {
   return load().folders;
+}
+
+/** Lepas referensi metadata yang dihapus dari semua dokumen (dipanggil meta-store). */
+export function detachMeta(kind: MetaKind, id: string): void {
+  const data = load();
+  let changed = false;
+  for (const d of data.documents) {
+    if (kind === "tag" && d.tag_ids?.includes(id)) {
+      d.tag_ids = d.tag_ids.filter((t) => t !== id);
+      changed = true;
+    } else if (kind === "type" && d.document_type_id === id) {
+      d.document_type_id = null;
+      changed = true;
+    } else if (kind === "correspondent" && d.correspondent_id === id) {
+      d.correspondent_id = null;
+      changed = true;
+    }
+  }
+  if (changed) save(data);
 }
 
 /** Id versi (default: versi terkini) sebuah dokumen — kunci berkas di file-store. */
@@ -277,6 +320,12 @@ export const mockStore = {
       status: "DRAFT",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      tag_ids: [],
+      document_type_id: null,
+      correspondent_id: null,
+      document_date: null,
+      asn: null,
+      description: null,
     };
     const versionId = uuid();
     data.documents.push(doc);
@@ -397,6 +446,47 @@ export const mockStore = {
     await deleteFiles(versionIds);
     recordActivity("DELETE_DOCUMENT", `Mengosongkan Sampah (${trashed.length} dokumen dihapus permanen)`);
     return delay(trashed.length);
+  },
+
+  /** Ubah metadata satu dokumen (tag, tipe, pihak, tanggal dokumen, ASN, deskripsi). */
+  async updateDocumentMeta(id: string, patch: DocumentMetaPatch): Promise<DocumentItem> {
+    const data = load();
+    const doc = data.documents.find((d) => d.id === id && !d.deleted_at);
+    if (!doc) throw new Error("Dokumen tidak ditemukan.");
+    if (patch.asn != null && data.documents.some((d) => d.id !== id && d.asn === patch.asn)) {
+      throw new Error(`Nomor arsip ${patch.asn} sudah dipakai dokumen lain.`);
+    }
+    if (patch.tag_ids !== undefined) doc.tag_ids = Array.from(new Set(patch.tag_ids));
+    if (patch.document_type_id !== undefined) doc.document_type_id = patch.document_type_id;
+    if (patch.correspondent_id !== undefined) doc.correspondent_id = patch.correspondent_id;
+    if (patch.document_date !== undefined) doc.document_date = patch.document_date;
+    if (patch.asn !== undefined) doc.asn = patch.asn;
+    if (patch.description !== undefined) doc.description = patch.description;
+    doc.updated_at = new Date().toISOString();
+    save(data);
+    recordActivity("UPDATE_DOCUMENT_META", `Mengubah metadata dokumen "${doc.title}"`, { document_id: id });
+    return delay(doc);
+  },
+
+  /** Ubah metadata massal; mengembalikan jumlah dokumen yang diubah. */
+  async bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promise<number> {
+    const data = load();
+    const set = new Set(ids);
+    let n = 0;
+    for (const doc of data.documents) {
+      if (!set.has(doc.id) || doc.deleted_at) continue;
+      const tags = new Set(doc.tag_ids ?? []);
+      for (const t of patch.add_tag_ids ?? []) tags.add(t);
+      for (const t of patch.remove_tag_ids ?? []) tags.delete(t);
+      doc.tag_ids = Array.from(tags);
+      if (patch.document_type_id !== undefined) doc.document_type_id = patch.document_type_id;
+      if (patch.correspondent_id !== undefined) doc.correspondent_id = patch.correspondent_id;
+      doc.updated_at = new Date().toISOString();
+      n += 1;
+    }
+    save(data);
+    if (n > 0) recordActivity("UPDATE_DOCUMENT_META", `Mengubah metadata ${n} dokumen sekaligus`);
+    return delay(n);
   },
 
   /** Pindahkan dokumen ke folder lain (backend belum punya endpoint ini). */
