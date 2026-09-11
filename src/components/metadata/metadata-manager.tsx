@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Building2, FileType, Loader2, Pencil, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Building2, FileType, ListChecks, Loader2, Pencil, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { CustomFieldsManager } from "@/components/metadata/custom-fields-manager";
 import { useMeta, useCreateMeta, useUpdateMeta, useDeleteMeta } from "@/hooks/use-meta";
 import { META_LABEL, TAG_COLORS } from "@/lib/mocks/meta-store";
 import { formatDate } from "@/lib/format";
@@ -50,12 +51,19 @@ export function MetadataManager({ canWrite }: { canWrite: boolean }) {
             {META_LABEL[kind].plural}
           </TabsTrigger>
         ))}
+        <TabsTrigger value="fields" className="flex-none">
+          <ListChecks data-icon="inline-start" />
+          Bidang khusus
+        </TabsTrigger>
       </TabsList>
       {KINDS.map(({ kind, hint }) => (
         <TabsContent key={kind} value={kind} className="pt-5">
           <MetaList kind={kind} hint={hint} canWrite={canWrite} />
         </TabsContent>
       ))}
+      <TabsContent value="fields" className="pt-5">
+        <CustomFieldsManager canWrite={canWrite} />
+      </TabsContent>
     </Tabs>
   );
 }

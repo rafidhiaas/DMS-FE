@@ -89,6 +89,8 @@ import { EditMetadataDialog } from "@/components/folders/edit-metadata-dialog";
 import { StatusActions } from "@/components/folders/status-actions";
 import { TagChip } from "@/components/metadata/tag-chip";
 import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
+import { useCustomFields } from "@/hooks/use-custom-fields";
+import { formatCustomValue } from "@/lib/api/custom-fields";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
 import { isExpired } from "@/lib/mocks/share-link-store";
@@ -452,7 +454,9 @@ function DetailsTab({ doc, canWrite }: { doc: DocumentDetailData; canWrite: bool
   const tags = useTags();
   const types = useDocumentTypes();
   const correspondents = useCorrespondents();
+  const customFields = useCustomFields();
   const [editOpen, setEditOpen] = useState(false);
+  const filledFields = (customFields.data ?? []).filter((f) => doc.custom_fields && doc.custom_fields[f.id] != null);
 
   const docTags = (doc.tag_ids ?? [])
     .map((id) => tags.data?.find((t) => t.id === id))
@@ -525,6 +529,17 @@ function DetailsTab({ doc, canWrite }: { doc: DocumentDetailData; canWrite: bool
           <Field label="ID dokumen" mono>
             {doc.id}
           </Field>
+          {filledFields.map((f) => (
+            <Field key={f.id} label={f.name}>
+              {f.type === "url" ? (
+                <a href={String(doc.custom_fields![f.id])} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
+                  {String(doc.custom_fields![f.id])}
+                </a>
+              ) : (
+                formatCustomValue(f, doc.custom_fields![f.id])
+              )}
+            </Field>
+          ))}
           <div className="sm:col-span-2">
             <Field label="Deskripsi">
               {doc.description ? (

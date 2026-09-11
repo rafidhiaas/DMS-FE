@@ -46,6 +46,29 @@ export interface DocumentItem {
   /** Nomor arsip (Archive Serial Number). */
   asn?: number | null;
   description?: string | null;
+  /** Nilai bidang khusus per id bidang (lihat CustomField). */
+  custom_fields?: Record<string, CustomFieldValue>;
+}
+
+/* ---------------------------- Bidang khusus ---------------------------- */
+export type CustomFieldType = "text" | "number" | "date" | "boolean" | "select" | "money" | "url";
+export type CustomFieldValue = string | number | boolean | null;
+export interface CustomField {
+  id: string;
+  name: string;
+  type: CustomFieldType;
+  /** Hanya untuk tipe `select`. */
+  options?: string[];
+  created_at: string;
+  document_count?: number;
+}
+export type CustomFieldInput = Pick<CustomField, "name" | "type" | "options">;
+
+/* ------------------------- Manajemen pengguna -------------------------- */
+export interface ManagedUser extends UserSummary {
+  active: boolean;
+  created_at: string;
+  last_login_at: string | null;
 }
 
 /** Jenis metadata yang dikelola di halaman Metadata. */
@@ -72,6 +95,7 @@ export interface DocumentMetaPatch {
   document_date?: string | null;
   asn?: number | null;
   description?: string | null;
+  custom_fields?: Record<string, CustomFieldValue>;
 }
 
 /** Patch metadata massal — hanya field yang diberikan yang diterapkan. */

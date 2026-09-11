@@ -2,6 +2,7 @@ import type { ActivityLog, ActivityLogPage, UserSummary } from "@/types";
 import { MOCK_ACCOUNTS } from "@/lib/mocks/auth";
 import { MOCK_USERS } from "@/lib/mocks/users";
 import { getMockActor } from "@/lib/mocks/actor";
+import { peekUsers } from "@/lib/mocks/users-store";
 
 /**
  * MOCK store Audit Log — persist di localStorage, meniru perilaku backend:
@@ -24,8 +25,10 @@ function nowIso(offsetHours = 0): string {
   return d.toISOString();
 }
 
-/** Semua user yang dikenal mock (akun demo + user mock share). */
+/** Semua user yang dikenal mock — dari users-store (fallback akun demo + user mock statis). */
 export function allMockUsers(): UserSummary[] {
+  const stored = peekUsers();
+  if (stored.length > 0) return stored;
   return [...Object.values(MOCK_ACCOUNTS), ...MOCK_USERS];
 }
 

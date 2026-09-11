@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Loader2, Plus } from "lucide-react";
 import { useTags, useDocumentTypes, useCorrespondents } from "@/hooks/use-meta";
 import { useUpdateDocumentMeta, useBulkUpdateMeta } from "@/hooks/use-documents";
-import type { DocumentItem, MetaItem } from "@/types";
+import type { CustomFieldValue, DocumentItem, MetaItem } from "@/types";
+import { CustomFieldInputs } from "@/components/metadata/custom-field-inputs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,7 @@ export function EditMetadataDialog({
   const [date, setDate] = useState(doc.document_date?.slice(0, 10) ?? "");
   const [asn, setAsn] = useState(doc.asn != null ? String(doc.asn) : "");
   const [description, setDescription] = useState(doc.description ?? "");
+  const [customValues, setCustomValues] = useState<Record<string, CustomFieldValue>>(() => ({ ...(doc.custom_fields ?? {}) }));
 
   function toggleTag(id: string) {
     setTagIds((prev) => {
@@ -160,6 +162,7 @@ export function EditMetadataDialog({
           document_date: date ? new Date(date).toISOString() : null,
           asn: asnNumber,
           description: description.trim() || null,
+          custom_fields: customValues,
         },
       },
       {
@@ -174,7 +177,7 @@ export function EditMetadataDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Ubah metadata</DialogTitle>
           <DialogDescription>Menandai “{doc.title}” agar mudah difilter dan dicari.</DialogDescription>
@@ -214,6 +217,11 @@ export function EditMetadataDialog({
               />
             </div>
           </div>
+
+          <CustomFieldInputs
+            values={customValues}
+            onChange={(fieldId, value) => setCustomValues((prev) => ({ ...prev, [fieldId]: value }))}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="doc-desc">Deskripsi</Label>

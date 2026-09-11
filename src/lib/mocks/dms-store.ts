@@ -61,9 +61,9 @@ function seed(): StoreShape {
   ];
 
   const documents: DocumentItem[] = [
-    { id: "seed-doc-1", title: "Laporan Keuangan Q4", extension: "pdf", size_bytes: "2411724", folder_id: fKeu2025, current_version: 2, status: "APPROVED", created_at: nowIso(14), updated_at: nowIso(1), tag_ids: ["seed-tag-keuangan", "seed-tag-2025"], document_type_id: "seed-type-laporan", correspondent_id: "seed-corr-bank", document_date: "2025-12-31T00:00:00.000Z", asn: 1001, description: "Laporan keuangan kuartal keempat beserta lampiran neraca dan arus kas." },
-    { id: "seed-doc-2", title: "Anggaran Operasional", extension: "xlsx", size_bytes: "845000", folder_id: fKeuangan, current_version: 1, status: "DRAFT", created_at: nowIso(10), updated_at: nowIso(10), tag_ids: ["seed-tag-keuangan"], document_type_id: "seed-type-anggaran", correspondent_id: null, document_date: null, asn: 1002, description: null },
-    { id: "seed-doc-3", title: "Perjanjian Kerja Sama Vendor", extension: "docx", size_bytes: "1200500", folder_id: fLegal, current_version: 3, status: "PENDING_REVIEW", created_at: nowIso(9), updated_at: nowIso(1), tag_ids: ["seed-tag-kontrak", "seed-tag-penting"], document_type_id: "seed-type-kontrak", correspondent_id: "seed-corr-mitra", document_date: "2026-08-15T00:00:00.000Z", asn: 1003, description: "Perjanjian kerja sama pengadaan dengan PT Mitra Sejahtera, masa berlaku 2 tahun." },
+    { id: "seed-doc-1", title: "Laporan Keuangan Q4", extension: "pdf", size_bytes: "2411724", folder_id: fKeu2025, current_version: 2, status: "APPROVED", created_at: nowIso(14), updated_at: nowIso(1), tag_ids: ["seed-tag-keuangan", "seed-tag-2025"], document_type_id: "seed-type-laporan", correspondent_id: "seed-corr-bank", document_date: "2025-12-31T00:00:00.000Z", asn: 1001, description: "Laporan keuangan kuartal keempat beserta lampiran neraca dan arus kas.", custom_fields: { "seed-field-departemen": "Keuangan", "seed-field-rahasia": false } },
+    { id: "seed-doc-2", title: "Anggaran Operasional", extension: "xlsx", size_bytes: "845000", folder_id: fKeuangan, current_version: 1, status: "DRAFT", created_at: nowIso(10), updated_at: nowIso(10), tag_ids: ["seed-tag-keuangan"], document_type_id: "seed-type-anggaran", correspondent_id: null, document_date: null, asn: 1002, description: null, custom_fields: { "seed-field-departemen": "Keuangan" } },
+    { id: "seed-doc-3", title: "Perjanjian Kerja Sama Vendor", extension: "docx", size_bytes: "1200500", folder_id: fLegal, current_version: 3, status: "PENDING_REVIEW", created_at: nowIso(9), updated_at: nowIso(1), tag_ids: ["seed-tag-kontrak", "seed-tag-penting"], document_type_id: "seed-type-kontrak", correspondent_id: "seed-corr-mitra", document_date: "2026-08-15T00:00:00.000Z", asn: 1003, description: "Perjanjian kerja sama pengadaan dengan PT Mitra Sejahtera, masa berlaku 2 tahun.", custom_fields: { "seed-field-nilai": 250000000, "seed-field-berlaku": "2028-08-15", "seed-field-departemen": "Legal", "seed-field-rahasia": true } },
   ];
 
   const versions: DocumentVersion[] = [
@@ -115,6 +115,10 @@ function load(): StoreShape {
         d.document_date = sd?.document_date ?? null;
         d.asn = sd?.asn ?? null;
         d.description = sd?.description ?? null;
+        dirty = true;
+      }
+      if (!d.custom_fields) {
+        d.custom_fields = seedDocs.find((x) => x.id === d.id)?.custom_fields ?? {};
         dirty = true;
       }
       if (d.document_type_id === undefined) d.document_type_id = null;
@@ -181,6 +185,19 @@ export function detachMeta(kind: MetaKind, id: string): void {
       changed = true;
     } else if (kind === "correspondent" && d.correspondent_id === id) {
       d.correspondent_id = null;
+      changed = true;
+    }
+  }
+  if (changed) save(data);
+}
+
+/** Hapus nilai sebuah bidang khusus dari semua dokumen (dipanggil meta-store). */
+export function detachCustomField(fieldId: string): void {
+  const data = load();
+  let changed = false;
+  for (const d of data.documents) {
+    if (d.custom_fields && fieldId in d.custom_fields) {
+      delete d.custom_fields[fieldId];
       changed = true;
     }
   }
@@ -329,6 +346,7 @@ export const mockStore = {
       document_date: null,
       asn: null,
       description: null,
+      custom_fields: {},
     };
     const versionId = uuid();
     data.documents.push(doc);
@@ -523,6 +541,12 @@ export const mockStore = {
     if (patch.document_date !== undefined) doc.document_date = patch.document_date;
     if (patch.asn !== undefined) doc.asn = patch.asn;
     if (patch.description !== undefined) doc.description = patch.description;
+    if (patch.custom_fields !== undefined) {
+      // Simpan hanya nilai terisi agar hitungan pemakaian bidang akurat.
+      const clean: Record<string, import("@/types").CustomFieldValue> = {};
+      for (const [k, v] of Object.entries(patch.custom_fields)) if (v !== null && v !== "") clean[k] = v;
+      doc.custom_fields = clean;
+    }
     doc.updated_at = new Date().toISOString();
     save(data);
     recordActivity("UPDATE_DOCUMENT_META", `Mengubah metadata dokumen "${doc.title}"`, { document_id: id });

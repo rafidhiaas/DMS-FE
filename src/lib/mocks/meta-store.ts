@@ -1,6 +1,6 @@
-import type { Correspondent, DocumentType, MetaItem, MetaKind, Tag } from "@/types";
+import type { Correspondent, CustomField, CustomFieldInput, DocumentType, MetaItem, MetaKind, Tag } from "@/types";
 import { recordActivity } from "@/lib/mocks/audit-store";
-import { detachMeta, peekDocuments } from "@/lib/mocks/dms-store";
+import { detachCustomField, detachMeta, peekDocuments } from "@/lib/mocks/dms-store";
 
 /**
  * MOCK store metadata dokumen ala Paperless-ngx: Tag (berwarna), Tipe Dokumen,
@@ -13,6 +13,7 @@ interface MetaShape {
   tags: Tag[];
   types: DocumentType[];
   correspondents: Correspondent[];
+  fields?: CustomField[];
 }
 
 /** Palet warna tag — hex agar bisa dipakai inline style di terang & gelap. */
@@ -60,7 +61,17 @@ function seed(): MetaShape {
       { id: "seed-corr-bank", name: "Bank Nusantara", created_at: nowIso(40) },
       { id: "seed-corr-pajak", name: "Kantor Pajak Pratama", created_at: nowIso(30) },
     ],
+    fields: seedFields(),
   };
+}
+
+function seedFields(): CustomField[] {
+  return [
+    { id: "seed-field-nilai", name: "Nilai kontrak", type: "money", created_at: nowIso(35) },
+    { id: "seed-field-berlaku", name: "Berlaku hingga", type: "date", created_at: nowIso(35) },
+    { id: "seed-field-departemen", name: "Departemen", type: "select", options: ["Keuangan", "Legal", "SDM", "Operasional"], created_at: nowIso(35) },
+    { id: "seed-field-rahasia", name: "Dokumen rahasia", type: "boolean", created_at: nowIso(20) },
+  ];
 }
 
 function load(): MetaShape {
@@ -72,7 +83,12 @@ function load(): MetaShape {
     return initial;
   }
   try {
-    return JSON.parse(raw) as MetaShape;
+    const data = JSON.parse(raw) as MetaShape;
+    if (!data.fields) {
+      data.fields = seedFields(); // migrasi: bidang khusus ditambahkan belakangan
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    return data;
   } catch {
     const initial = seed();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
@@ -170,6 +186,64 @@ export const mockMetaStore = {
     save(data);
     detachMeta(kind, id);
     recordActivity("DELETE_META", `Menghapus ${META_LABEL[kind].singular.toLowerCase()} "${item.name}"`);
+    return delay(undefined);
+  },
+
+  /* ---------------------------- Bidang khusus ---------------------------- */
+
+  async listFields(): Promise<CustomField[]> {
+    const docs = peekDocuments();
+    const fields = (load().fields ?? []).map((f) => ({
+      ...f,
+      document_count: docs.filter((d) => d.custom_fields && d.custom_fields[f.id] != null).length,
+    }));
+    return delay(fields.sort((a, b) => a.name.localeCompare(b.name)));
+  },
+
+  async createField(input: CustomFieldInput): Promise<CustomField> {
+    const name = input.name.trim();
+    if (!name) throw new Error("Nama bidang tidak boleh kosong.");
+    const data = load();
+    const fields = data.fields ?? [];
+    if (fields.some((f) => f.name.toLowerCase() === name.toLowerCase())) throw new Error(`Bidang "${name}" sudah ada.`);
+    const field: CustomField = {
+      id: uuid(),
+      name,
+      type: input.type,
+      options: input.type === "select" ? input.options ?? [] : undefined,
+      created_at: new Date().toISOString(),
+    };
+    data.fields = [...fields, field];
+    save(data);
+    recordActivity("CREATE_META", `Membuat bidang khusus "${name}"`);
+    return delay({ ...field, document_count: 0 });
+  },
+
+  async updateField(id: string, patch: Partial<CustomFieldInput>): Promise<CustomField> {
+    const data = load();
+    const field = (data.fields ?? []).find((f) => f.id === id);
+    if (!field) throw new Error("Bidang tidak ditemukan.");
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (!name) throw new Error("Nama bidang tidak boleh kosong.");
+      field.name = name;
+    }
+    if (patch.type !== undefined) field.type = patch.type;
+    if (patch.options !== undefined) field.options = patch.options;
+    if (field.type !== "select") field.options = undefined;
+    save(data);
+    recordActivity("UPDATE_META", `Mengubah bidang khusus "${field.name}"`);
+    return delay(field);
+  },
+
+  async removeField(id: string): Promise<void> {
+    const data = load();
+    const field = (data.fields ?? []).find((f) => f.id === id);
+    if (!field) throw new Error("Bidang tidak ditemukan.");
+    data.fields = (data.fields ?? []).filter((f) => f.id !== id);
+    save(data);
+    detachCustomField(id);
+    recordActivity("DELETE_META", `Menghapus bidang khusus "${field.name}"`);
     return delay(undefined);
   },
 };

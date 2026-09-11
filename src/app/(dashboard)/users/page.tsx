@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/page-header";
-import { UsersTable } from "@/components/users/users-table";
+import { UsersManager } from "@/components/users/users-manager";
 
 export const metadata: Metadata = { title: "Manajemen User" };
 
@@ -19,9 +19,9 @@ export default async function UsersPage() {
       <PageHeader
         eyebrow="Administrasi"
         title="Manajemen User"
-        description="Daftar pengguna Secure DMS dan perannya."
+        description="Tambah pengguna, atur peran RBAC, nonaktifkan atau hapus akun."
       />
-      <UsersTable />
+      <UsersManager actorRole={user.role} actorId={user.id} />
     </div>
   );
 }

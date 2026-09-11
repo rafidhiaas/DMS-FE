@@ -7,6 +7,7 @@ import {
   Users,
   Trash2,
   Tags,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/types";
@@ -45,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Trash2,
     roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
   },
+  { label: "Pengaturan", href: "/settings", icon: Settings, roles: ALL },
 ];
 
 /** Filter menu sesuai peran pengguna. */

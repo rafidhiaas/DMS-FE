@@ -23,6 +23,7 @@ const GO_KEYS: Record<string, string> = {
   a: "/audit",
   u: "/users",
   t: "/trash",
+  p: "/settings",
 };
 
 function isTyping(target: EventTarget | null): boolean {
