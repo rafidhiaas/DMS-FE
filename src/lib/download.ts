@@ -40,5 +40,7 @@ export async function downloadDocument(doc: {
     "Berkas asli akan tersedia setelah backend terintegrasi dengan Object Storage (S3).",
   ].join("\n");
   triggerBrowserDownload(placeholder, `${doc.title}.${doc.extension}.txt`);
-  recordActivity("DOWNLOAD_DOCUMENT", `Mengunduh dokumen "${doc.title}" (v${doc.current_version})`);
+  recordActivity("DOWNLOAD_DOCUMENT", `Mengunduh dokumen "${doc.title}" (v${doc.current_version})`, {
+    document_id: doc.id,
+  });
 }

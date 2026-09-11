@@ -38,18 +38,20 @@ function seed(): ActivityLog[] {
   const employee = MOCK_ACCOUNTS.EMPLOYEE;
   const superAdmin = MOCK_ACCOUNTS.SUPER_ADMIN;
 
-  const entries: Array<Pick<ActivityLog, "user_id" | "action" | "details"> & { hoursAgo: number }> = [
+  const entries: Array<
+    Pick<ActivityLog, "user_id" | "action" | "details"> & { hoursAgo: number; document_id?: string }
+  > = [
     { user_id: superAdmin.id, action: "LOGIN", details: "Login berhasil.", hoursAgo: 76 },
     { user_id: employee.id, action: "CREATE_FOLDER", details: 'Membuat folder "Keuangan"', hoursAgo: 72 },
     { user_id: employee.id, action: "CREATE_FOLDER", details: 'Membuat folder "Legal & Kontrak"', hoursAgo: 70 },
-    { user_id: employee.id, action: "CREATE_DOCUMENT", details: 'Mengunggah dokumen "Laporan Keuangan Q4" (v1)', hoursAgo: 60 },
-    { user_id: employee.id, action: "UPLOAD_VERSION", details: 'Mengunggah versi 2 dokumen "Laporan Keuangan Q4" — Revisi angka pendapatan.', hoursAgo: 30 },
+    { user_id: employee.id, action: "CREATE_DOCUMENT", details: 'Mengunggah dokumen "Laporan Keuangan Q4" (v1)', hoursAgo: 60, document_id: "seed-doc-1" },
+    { user_id: employee.id, action: "UPLOAD_VERSION", details: 'Mengunggah versi 2 dokumen "Laporan Keuangan Q4" — Revisi angka pendapatan.', hoursAgo: 30, document_id: "seed-doc-1" },
     { user_id: admin.id, action: "LOGIN", details: "Login berhasil.", hoursAgo: 28 },
-    { user_id: admin.id, action: "SHARE_DOCUMENT", details: 'Membagikan dokumen "Laporan Keuangan Q4" ke user andi@dms.test dengan akses DOWNLOADER', hoursAgo: 27 },
-    { user_id: admin.id, action: "SHARE_DOCUMENT", details: 'Membagikan dokumen "Perjanjian Kerja Sama Vendor" ke user citra@dms.test dengan akses VIEWER', hoursAgo: 26 },
-    { user_id: employee.id, action: "RENAME_DOCUMENT", details: 'Mengganti judul dokumen menjadi "Anggaran Operasional"', hoursAgo: 20 },
+    { user_id: admin.id, action: "SHARE_DOCUMENT", details: 'Membagikan dokumen "Laporan Keuangan Q4" ke user andi@dms.test dengan akses DOWNLOADER', hoursAgo: 27, document_id: "seed-doc-1" },
+    { user_id: admin.id, action: "SHARE_DOCUMENT", details: 'Membagikan dokumen "Perjanjian Kerja Sama Vendor" ke user citra@dms.test dengan akses VIEWER', hoursAgo: 26, document_id: "seed-doc-3" },
+    { user_id: employee.id, action: "RENAME_DOCUMENT", details: 'Mengganti judul dokumen menjadi "Anggaran Operasional"', hoursAgo: 20, document_id: "seed-doc-2" },
     { user_id: superAdmin.id, action: "DELETE_FOLDER", details: 'Menghapus folder "Arsip Lama"', hoursAgo: 12 },
-    { user_id: admin.id, action: "UPDATE_SHARE_ACCESS", details: "Mengubah level akses share menjadi EDITOR", hoursAgo: 8 },
+    { user_id: admin.id, action: "UPDATE_SHARE_ACCESS", details: "Mengubah level akses share menjadi EDITOR", hoursAgo: 8, document_id: "seed-doc-1" },
     { user_id: employee.id, action: "LOGOUT", details: "Logout berhasil.", hoursAgo: 5 },
   ];
 
@@ -60,6 +62,7 @@ function seed(): ActivityLog[] {
     details: e.details,
     ip_address: MOCK_IP,
     created_at: nowIso(e.hoursAgo),
+    document_id: e.document_id ?? null,
   }));
 }
 
@@ -89,8 +92,15 @@ function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-/** Catat aktivitas atas nama user yang sedang login (dipanggil mock store lain). */
-export function recordActivity(action: string, details: string): void {
+/**
+ * Catat aktivitas atas nama user yang sedang login (dipanggil mock store lain).
+ * `meta.document_id` mengaitkan log ke dokumen untuk tab "Riwayat" di halaman detail.
+ */
+export function recordActivity(
+  action: string,
+  details: string,
+  meta: { document_id?: string } = {},
+): void {
   if (typeof window === "undefined") return;
   const actor = getMockActor();
   const logs = load();
@@ -101,6 +111,7 @@ export function recordActivity(action: string, details: string): void {
     details,
     ip_address: MOCK_IP,
     created_at: new Date().toISOString(),
+    document_id: meta.document_id ?? null,
   });
   save(logs);
 }
@@ -137,6 +148,19 @@ export const mockAuditStore = {
         totalPages: Math.max(1, Math.ceil(total / input.limit)),
       },
     });
+  },
+
+  /**
+   * Riwayat satu dokumen (terbaru dulu) — meniru tab "History" Paperless.
+   * Tidak dibatasi peran: siapa pun yang bisa membuka dokumen boleh melihat jejaknya.
+   */
+  async getDocumentHistory(documentId: string, limit = 50): Promise<ActivityLog[]> {
+    const logs = load()
+      .filter((l) => l.document_id === documentId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit)
+      .map((l) => ({ ...l, user: resolveUser(l.user_id) }));
+    return delay(logs);
   },
 
   /** Jumlah aktivitas per hari selama N hari terakhir (mengikuti pembatasan peran). */

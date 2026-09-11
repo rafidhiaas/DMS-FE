@@ -6,6 +6,7 @@ import * as activityLogsApi from "@/lib/api/activity-logs";
 export const auditKeys = {
   logs: (action: string, page: number, limit: number) =>
     ["activity-logs", { action, page, limit }] as const,
+  documentHistory: (documentId: string) => ["document-history", documentId] as const,
 };
 
 export function useActivityLogs(input: { action?: string; page: number; limit: number }) {
@@ -14,5 +15,14 @@ export function useActivityLogs(input: { action?: string; page: number; limit: n
     queryFn: () => activityLogsApi.fetchActivityLogs(input),
     // Tahan data lama saat pindah halaman agar tabel tidak berkedip.
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Riwayat aktivitas satu dokumen; `null` berarti backend belum mendukung. */
+export function useDocumentHistory(documentId: string, enabled = true) {
+  return useQuery({
+    queryKey: auditKeys.documentHistory(documentId),
+    queryFn: () => activityLogsApi.fetchDocumentHistory(documentId),
+    enabled,
   });
 }

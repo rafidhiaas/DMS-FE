@@ -15,23 +15,38 @@ import {
   FileWarning,
   Loader2,
   MoreVertical,
+  Info,
+  Users,
+  Layers,
+  Link2,
+  FolderOpen,
 } from "lucide-react";
 import { useDocument, useRenameDocument, useDeleteDocument, useUploadVersion } from "@/hooks/use-documents";
+import { useDocumentShares } from "@/hooks/use-shares";
+import { useShareLinks } from "@/hooks/use-share-links";
+import { useDocumentHistory } from "@/hooks/use-audit-logs";
 import { downloadDocument } from "@/lib/download";
-import { formatBytes, formatDateTime, STATUS_META, ALLOWED_EXTENSIONS, type AllowedExtension } from "@/lib/format";
-import type { Role } from "@/types";
+import {
+  formatBytes,
+  formatDateTime,
+  formatRemaining,
+  actionMeta,
+  STATUS_META,
+  ACCESS_LEVEL_META,
+  ROLE_BADGE_CLASS,
+  ALLOWED_EXTENSIONS,
+  type AllowedExtension,
+} from "@/lib/format";
+import { ROLE_LABELS } from "@/lib/constants";
+import type { ActivityLog, DocumentDetail as DocumentDetailData, DocumentShare, Role, ShareLink } from "@/types";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,8 +66,13 @@ import { FileIcon } from "@/components/folders/file-icon";
 import { RenameDialog, DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
+import { isExpired } from "@/lib/mocks/share-link-store";
 import { PageHeader } from "@/components/page-header";
 
+/**
+ * Halaman detail dokumen — tata letak "split view" ala Paperless-ngx:
+ * kiri = tab metadata (Detail / Versi / Riwayat / Akses), kanan = pratinjau.
+ */
 export function DocumentDetail({
   documentId,
   role,
@@ -77,12 +97,12 @@ export function DocumentDetail({
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6">
-        <Skeleton className="h-8 w-40" />
+      <div className="mx-auto max-w-6xl space-y-6">
+        <Skeleton className="h-5 w-48" />
         <Skeleton className="h-28 rounded-xl" />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-64 rounded-xl lg:col-span-2" />
-          <Skeleton className="h-64 rounded-xl" />
+        <div className="grid gap-5 lg:grid-cols-5">
+          <Skeleton className="h-80 rounded-xl lg:col-span-3" />
+          <Skeleton className="h-80 rounded-xl lg:col-span-2" />
         </div>
       </div>
     );
@@ -90,7 +110,7 @@ export function DocumentDetail({
 
   if (isError || !doc) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
           <FileWarning className="size-10 text-muted-foreground" />
           <p className="font-medium">Dokumen tidak ditemukan</p>
@@ -143,7 +163,7 @@ export function DocumentDetail({
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link
         href={`/folders/${doc.folder_id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -178,103 +198,112 @@ export function DocumentDetail({
           </span>
         }
         actions={
-          <><div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={handleDownload}>
-            <Download className="size-4" />
-            Unduh
-          </Button>
-          {canWrite && (
-            <>
-              <Button variant="outline" onClick={() => setShareOpen(true)}>
-                <Share2 className="size-4" />
-                Bagikan
-              </Button>
-              <ShareLinkPopover documentId={documentId} />
-              <Button onClick={() => setVersionOpen(true)}>
-                <UploadCloud className="size-4" />
-                Versi Baru
-              </Button>
-            </>
-          )}
-          {(canWrite || canDelete) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
-              >
-                <MoreVertical className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {canWrite && (
-                  <DropdownMenuItem onClick={() => setRenameOpen(true)}>
-                    <Pencil className="size-4" />
-                    Ganti judul
-                  </DropdownMenuItem>
-                )}
-                {canDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-                      <Trash2 className="size-4" />
-                      Hapus dokumen
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={handleDownload}>
+              <Download className="size-4" />
+              Unduh
+            </Button>
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setShareOpen(true)}>
+                  <Share2 className="size-4" />
+                  Bagikan
+                </Button>
+                <ShareLinkPopover documentId={documentId} />
+                <Button onClick={() => setVersionOpen(true)}>
+                  <UploadCloud className="size-4" />
+                  Versi Baru
+                </Button>
+              </>
+            )}
+            {(canWrite || canDelete) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+                  aria-label="Aksi lain"
+                >
+                  <MoreVertical className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canWrite && (
+                    <DropdownMenuItem onClick={() => setRenameOpen(true)}>
+                      <Pencil className="size-4" />
+                      Ganti judul
                     </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div></>
+                  )}
+                  {canDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                        <Trash2 className="size-4" />
+                        Hapus dokumen
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Preview */}
-        <Card className="lg:col-span-2">
+      {/* Split view: tab metadata (kiri) + pratinjau (kanan). */}
+      <div className="grid items-start gap-5 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <Tabs defaultValue="detail">
+            <CardHeader className="border-b pb-0">
+              <TabsList variant="line" className="-mb-px w-full flex-wrap justify-start">
+                <TabsTrigger value="detail" className="flex-none">
+                  <Info data-icon="inline-start" />
+                  Detail
+                </TabsTrigger>
+                <TabsTrigger value="versions" className="flex-none">
+                  <Layers data-icon="inline-start" />
+                  Versi
+                  <TabCount value={doc.versions.length} />
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex-none">
+                  <History data-icon="inline-start" />
+                  Riwayat
+                </TabsTrigger>
+                <TabsTrigger value="access" className="flex-none">
+                  <Users data-icon="inline-start" />
+                  Akses
+                </TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <TabsContent value="detail">
+                <DetailsTab doc={doc} />
+              </TabsContent>
+              <TabsContent value="versions">
+                <VersionsTab doc={doc} />
+              </TabsContent>
+              <TabsContent value="history">
+                <HistoryTab documentId={documentId} />
+              </TabsContent>
+              <TabsContent value="access">
+                <AccessTab
+                  documentId={documentId}
+                  canWrite={canWrite}
+                  onManage={() => setShareOpen(true)}
+                />
+              </TabsContent>
+            </CardContent>
+          </Tabs>
+        </Card>
+
+        {/* Pratinjau — menempel saat halaman digulir di layar lebar. */}
+        <Card className="lg:sticky lg:top-6 lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Pratinjau</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-20 text-center text-muted-foreground">
               <FileIcon extension={doc.extension} className="size-10" />
-              <p className="text-sm">
-                Pratinjau berkas belum tersedia.
-              </p>
-              <p className="text-xs">
-                Menunggu integrasi Object Storage (S3) di backend.
-              </p>
+              <p className="text-sm">Pratinjau berkas belum tersedia.</p>
+              <p className="text-xs">Menunggu integrasi Object Storage (S3) di backend.</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Version history */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <History className="size-4" />
-              Riwayat Versi
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {doc.versions.map((v) => (
-              <div
-                key={v.id}
-                className="rounded-lg border p-3 text-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Versi {v.version_number}</span>
-                  {v.version_number === doc.current_version && (
-                    <Badge variant="outline" className="text-xs">
-                      Terkini
-                    </Badge>
-                  )}
-                </div>
-                {v.changelog && (
-                  <p className="mt-1 text-muted-foreground">{v.changelog}</p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatDateTime(v.created_at)}
-                </p>
-              </div>
-            ))}
           </CardContent>
         </Card>
       </div>
@@ -317,6 +346,268 @@ export function DocumentDetail({
   );
 }
 
+/* ------------------------------ helpers -------------------------------- */
+
+function TabCount({ value }: { value: number }) {
+  if (value <= 0) return null;
+  return (
+    <span className="ml-0.5 rounded-sm bg-muted px-1.5 font-mono text-[10.5px] text-muted-foreground">
+      {value}
+    </span>
+  );
+}
+
+function Field({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="space-y-1">
+      <dt className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={cn("text-sm break-words", mono && "font-mono text-[12.5px]")}>{children}</dd>
+    </div>
+  );
+}
+
+/* ------------------------------- Detail --------------------------------- */
+
+function DetailsTab({ doc }: { doc: DocumentDetailData }) {
+  const status = STATUS_META[doc.status];
+  return (
+    <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+      <Field label="Judul">{doc.title}</Field>
+      <Field label="Folder">
+        <Link
+          href={`/folders/${doc.folder_id}`}
+          className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
+        >
+          <FolderOpen className="size-4 text-muted-foreground" />
+          {doc.folder.name}
+        </Link>
+      </Field>
+      <Field label="Status">
+        <Badge variant="secondary" className={status.className}>
+          {status.label}
+        </Badge>
+      </Field>
+      <Field label="Versi terkini">
+        v{doc.current_version} dari {doc.versions.length} versi
+      </Field>
+      <Field label="Ekstensi" mono>
+        .{doc.extension}
+      </Field>
+      <Field label="Ukuran">{formatBytes(doc.size_bytes)}</Field>
+      <Field label="Dibuat">{formatDateTime(doc.created_at)}</Field>
+      <Field label="Diperbarui">{formatDateTime(doc.updated_at)}</Field>
+      <Field label="ID dokumen" mono>
+        {doc.id}
+      </Field>
+      <Field label="Kunci berkas" mono>
+        {doc.versions.find((v) => v.version_number === doc.current_version)?.s3_file_key ?? "—"}
+      </Field>
+    </dl>
+  );
+}
+
+/* -------------------------------- Versi --------------------------------- */
+
+function VersionsTab({ doc }: { doc: DocumentDetailData }) {
+  return (
+    <ol className="space-y-3">
+      {doc.versions.map((v) => {
+        const current = v.version_number === doc.current_version;
+        return (
+          <li
+            key={v.id}
+            className={cn("rounded-lg border p-3 text-sm", current && "border-primary/40 bg-primary/5")}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">Versi {v.version_number}</span>
+              {current && (
+                <Badge variant="outline" className="text-xs">
+                  Terkini
+                </Badge>
+              )}
+            </div>
+            {v.changelog && <p className="mt-1 text-muted-foreground">{v.changelog}</p>}
+            <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(v.created_at)}</p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/* ------------------------------- Riwayat -------------------------------- */
+
+function HistoryTab({ documentId }: { documentId: string }) {
+  const history = useDocumentHistory(documentId);
+
+  if (history.isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+  if (history.isError) {
+    return <p className="text-sm text-destructive">Gagal memuat riwayat dokumen.</p>;
+  }
+  if (history.data === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Riwayat per dokumen belum tersedia — backend belum mengaitkan audit log dengan dokumen.
+      </p>
+    );
+  }
+  const logs = history.data ?? [];
+  if (logs.length === 0) {
+    return <p className="text-sm text-muted-foreground">Belum ada aktivitas tercatat untuk dokumen ini.</p>;
+  }
+  return (
+    <ol className="relative space-y-0 border-l border-rule pl-5">
+      {logs.map((log) => (
+        <HistoryEntry key={log.id} log={log} />
+      ))}
+    </ol>
+  );
+}
+
+function HistoryEntry({ log }: { log: ActivityLog }) {
+  const meta = actionMeta(log.action);
+  return (
+    <li className="relative pb-5 last:pb-0">
+      <span className="absolute -left-[25px] top-1.5 size-2.5 rounded-full border-2 border-background bg-rule" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className={meta.className}>
+          {meta.label}
+        </Badge>
+        <span className="text-xs text-muted-foreground">{formatDateTime(log.created_at)}</span>
+      </div>
+      <p className="mt-1 text-sm">{log.details}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        oleh {log.user?.name ?? log.user_id}
+        {log.user?.email ? ` · ${log.user.email}` : ""}
+      </p>
+    </li>
+  );
+}
+
+/* -------------------------------- Akses --------------------------------- */
+
+function AccessTab({
+  documentId,
+  canWrite,
+  onManage,
+}: {
+  documentId: string;
+  canWrite: boolean;
+  onManage: () => void;
+}) {
+  const shares = useDocumentShares(documentId);
+  const links = useShareLinks(documentId);
+
+  return (
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            <Users className="size-4 text-muted-foreground" />
+            Pengguna dengan akses
+          </h3>
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={onManage}>
+              <Share2 className="size-4" />
+              Kelola
+            </Button>
+          )}
+        </div>
+        {shares.isLoading ? (
+          <Skeleton className="h-16 rounded-lg" />
+        ) : shares.isError ? (
+          <p className="text-sm text-destructive">Gagal memuat daftar akses.</p>
+        ) : (shares.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Belum dibagikan ke siapa pun. Hanya pemilik dan admin yang bisa membuka dokumen ini.
+          </p>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {(shares.data ?? []).map((s) => (
+              <ShareRow key={s.id} share={s} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            <Link2 className="size-4 text-muted-foreground" />
+            Tautan publik
+          </h3>
+          {canWrite && <ShareLinkPopover documentId={documentId} />}
+        </div>
+        {links.isLoading ? (
+          <Skeleton className="h-16 rounded-lg" />
+        ) : links.isError ? (
+          <p className="text-sm text-destructive">Gagal memuat tautan publik.</p>
+        ) : (links.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Belum ada tautan publik untuk dokumen ini.</p>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {(links.data ?? []).map((l) => (
+              <LinkRow key={l.id} link={l} />
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ShareRow({ share }: { share: DocumentShare }) {
+  const level = ACCESS_LEVEL_META[share.access_level];
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm">
+      <div className="min-w-0">
+        <p className="truncate font-medium">{share.user?.name ?? share.user_id}</p>
+        <p className="truncate text-xs text-muted-foreground">{share.user?.email ?? "—"}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        {share.user?.role && (
+          <Badge variant="outline" className={ROLE_BADGE_CLASS[share.user.role]}>
+            {ROLE_LABELS[share.user.role]}
+          </Badge>
+        )}
+        <Badge variant="secondary" className={level.className} title={level.description}>
+          {level.label}
+        </Badge>
+      </div>
+    </li>
+  );
+}
+
+function LinkRow({ link }: { link: ShareLink }) {
+  const expired = isExpired(link);
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm">
+      <div className="min-w-0">
+        <p className="truncate font-mono text-[12px]">/share/{link.token}</p>
+        <p className="text-xs text-muted-foreground">
+          Dibuat {formatDateTime(link.created_at)} · dibuka {link.access_count}×
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className={ACCESS_LEVEL_META[link.access].className}>
+          {ACCESS_LEVEL_META[link.access].label}
+        </Badge>
+        <span className={cn("text-xs text-muted-foreground", expired && "text-destructive")}>
+          {formatRemaining(link.expires_at)}
+        </span>
+      </div>
+    </li>
+  );
+}
+
 /* ------------------------- Upload Version Dialog ------------------------- */
 
 function UploadVersionDialog({
@@ -334,6 +625,7 @@ function UploadVersionDialog({
   const [sizeBytes, setSizeBytes] = useState(102400);
   const [extension, setExtension] = useState(currentExtension);
   const [changelog, setChangelog] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -343,6 +635,7 @@ function UploadVersionDialog({
       setExtension(ext as AllowedExtension);
     }
     setSizeBytes(file.size || 102400);
+    setFileName(file.name);
   }
 
   function submit() {
@@ -370,7 +663,7 @@ function UploadVersionDialog({
         <div className="space-y-4">
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-accent">
             <UploadCloud className="size-6" />
-            <span>Pilih berkas versi baru</span>
+            <span>{fileName ?? "Pilih berkas versi baru"}</span>
             <span className="text-xs">Ukuran terdeteksi: {formatBytes(sizeBytes)}</span>
             <input type="file" className="hidden" onChange={handleFile} />
           </label>

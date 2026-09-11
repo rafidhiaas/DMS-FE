@@ -44,6 +44,7 @@ import {
   CreateDocumentDialog,
   RenameDialog,
   DeleteConfirmDialog,
+  describeFile,
 } from "@/components/folders/folder-dialogs";
 
 type Target = { kind: "folder" | "document"; id: string; name: string };
@@ -70,6 +71,11 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [createDocOpen, setCreateDocOpen] = useState(false);
+  /* Drag-and-drop: berkas yang dijatuhkan mengisi dialog unggah; nonce memaksa remount. */
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  const [uploadNonce, setUploadNonce] = useState(0);
+  /* Kedalaman dragenter/dragleave — menghindari kedip saat kursor melewati elemen anak. */
+  const [dragDepth, setDragDepth] = useState(0);
   const [renameTarget, setRenameTarget] = useState<Target | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
@@ -143,6 +149,88 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         onError: (e) => toast.error(e.message),
       },
     );
+  }
+
+  function openUploadDialog(file: File | null) {
+    setDroppedFile(file);
+    setUploadNonce((n) => n + 1);
+    setCreateDocOpen(true);
+  }
+
+  /* ---------------------------- drag-and-drop --------------------------- */
+
+  const canDrop = canWrite && !isRoot;
+
+  function hasFiles(e: React.DragEvent): boolean {
+    return Array.from(e.dataTransfer.types).includes("Files");
+  }
+
+  function onDragEnter(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth((d) => d + 1);
+  }
+
+  function onDragLeave(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    setDragDepth((d) => Math.max(0, d - 1));
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); // wajib agar browser mengizinkan drop
+    e.dataTransfer.dropEffect = canDrop ? "copy" : "none";
+  }
+
+  async function onDrop(e: React.DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setDragDepth(0);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    if (!canWrite) {
+      toast.error("Peran Anda hanya-baca; tidak dapat mengunggah dokumen.");
+      return;
+    }
+    if (isRoot) {
+      toast.error("Masuk ke sebuah folder terlebih dahulu untuk mengunggah dokumen.");
+      return;
+    }
+
+    // Satu berkas → buka dialog agar judul bisa disesuaikan.
+    if (files.length === 1) {
+      openUploadDialog(files[0]);
+      return;
+    }
+
+    // Banyak berkas → unggah beruntun memakai nama berkas sebagai judul.
+    setBulkBusy(true);
+    let ok = 0;
+    const skipped: string[] = [];
+    for (const file of files) {
+      const info = describeFile(file);
+      if (!info.extension) {
+        skipped.push(file.name);
+        continue;
+      }
+      try {
+        await createDocument.mutateAsync({
+          title: info.title,
+          extension: info.extension,
+          size_bytes: info.size_bytes,
+          folder_id: folderId,
+        });
+        ok += 1;
+      } catch (err) {
+        toast.error(`${file.name}: ${err instanceof Error ? err.message : "gagal diunggah"}`);
+      }
+    }
+    setBulkBusy(false);
+    if (ok > 0) toast.success(`${ok} dokumen diunggah.`);
+    if (skipped.length > 0) {
+      toast.warning(`${skipped.length} berkas dilewati (ekstensi tidak didukung): ${skipped.join(", ")}`);
+    }
   }
 
   function handleCreateDocument(input: { title: string; extension: string; size_bytes: number }) {
@@ -231,8 +319,41 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
   const isEmpty = data && allFolders.length === 0 && allDocs.length === 0;
   const noMatch = data && !isEmpty && folders.length === 0 && docs.length === 0;
 
+  const dragging = dragDepth > 0;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div
+      className="relative mx-auto min-h-[70vh] max-w-6xl space-y-5"
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      {/* Lapisan drop — muncul saat berkas diseret di atas halaman. */}
+      {dragging && (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-background/85 text-center backdrop-blur-[2px]",
+            canDrop ? "border-primary text-primary" : "border-destructive/60 text-destructive",
+          )}
+        >
+          <UploadCloud className="size-8" />
+          <p className="font-medium">
+            {canDrop
+              ? `Lepaskan untuk mengunggah ke “${pathQuery.data?.at(-1)?.name ?? "folder ini"}”`
+              : isRoot
+                ? "Masuk ke sebuah folder dulu untuk mengunggah"
+                : "Peran Anda hanya-baca"}
+          </p>
+          {canDrop && (
+            <p className="text-xs text-muted-foreground">
+              Satu berkas membuka dialog; beberapa berkas langsung diunggah.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Kop halaman — seragam dengan halaman lain (PageHeader). */}
       <PageHeader
         eyebrow={isRoot ? "Arsip" : "Folder"}
@@ -251,7 +372,7 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
                 Folder Baru
               </Button>
               <Button
-                onClick={() => setCreateDocOpen(true)}
+                onClick={() => openUploadDialog(null)}
                 disabled={isRoot}
                 title={isRoot ? "Masuk ke sebuah folder untuk mengunggah dokumen" : undefined}
               >
@@ -305,7 +426,11 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         <EmptyState
           title="Folder ini kosong"
           description={
-            canWrite ? "Buat folder atau unggah dokumen untuk memulai." : "Belum ada isi di folder ini."
+            canDrop
+              ? "Buat folder, unggah dokumen, atau seret berkas ke halaman ini untuk memulai."
+              : canWrite
+                ? "Buat folder atau unggah dokumen untuk memulai."
+                : "Belum ada isi di folder ini."
           }
         />
       ) : noMatch ? (
@@ -376,11 +501,12 @@ export function FolderBrowser({ folderId, role }: { folderId: string; role: Role
         pending={createFolder.isPending}
       />
       <CreateDocumentDialog
-        key={`cd-${createDocOpen}`}
+        key={`cd-${createDocOpen}-${uploadNonce}`}
         open={createDocOpen}
         onOpenChange={setCreateDocOpen}
         onSubmit={handleCreateDocument}
         pending={createDocument.isPending}
+        initialFile={droppedFile}
       />
       <RenameDialog
         key={`rn-${renameTarget?.id ?? "none"}`}

@@ -22,7 +22,10 @@ export function useCreateShareLink(documentId: string) {
   return useMutation({
     mutationFn: (input: { access: ShareLinkAccess; expires_in_days: number | null }) =>
       shareLinksApi.createShareLink(documentId, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: shareLinkKeys.forDocument(documentId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: shareLinkKeys.forDocument(documentId) });
+      qc.invalidateQueries({ queryKey: ["document-history", documentId] });
+    },
   });
 }
 
@@ -30,7 +33,10 @@ export function useRevokeShareLink(documentId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (linkId: string) => shareLinksApi.revokeShareLink(linkId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: shareLinkKeys.forDocument(documentId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: shareLinkKeys.forDocument(documentId) });
+      qc.invalidateQueries({ queryKey: ["document-history", documentId] });
+    },
   });
 }
 

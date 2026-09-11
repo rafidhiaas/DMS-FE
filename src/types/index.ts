@@ -77,6 +77,11 @@ export interface ActivityLog {
   ip_address: string;
   created_at: string;
   user?: UserSummary;
+  /**
+   * Dokumen yang terkait aksi ini (untuk tab "Riwayat" di detail dokumen).
+   * Kolom ini belum ada di backend — FE mock mengisinya, backend mengembalikan undefined.
+   */
+  document_id?: string | null;
 }
 
 /** Ringkasan dokumen pada relasi share (bentuk respons GET /shares/shared-with-me). */

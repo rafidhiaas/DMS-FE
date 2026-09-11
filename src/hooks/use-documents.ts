@@ -31,6 +31,7 @@ export function useRenameDocument() {
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: ["folder-contents"] });
       qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: ["document-history", id] });
     },
   });
 }
@@ -58,6 +59,7 @@ export function useUploadVersion() {
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: documentKeys.detail(id) });
       qc.invalidateQueries({ queryKey: ["folder-contents"] });
+      qc.invalidateQueries({ queryKey: ["document-history", id] });
     },
   });
 }

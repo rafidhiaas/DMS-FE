@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
 import { mockAuditStore } from "@/lib/mocks/audit-store";
-import type { ActivityLogPage } from "@/types";
+import type { ActivityLog, ActivityLogPage } from "@/types";
 
 /** Lapisan akses data Audit Log (mock ↔ backend Express /api/activity-logs). */
 
@@ -19,6 +19,16 @@ export async function fetchActivityLogs(input: {
     },
   });
   return data;
+}
+
+/**
+ * Riwayat aktivitas satu dokumen (tab "Riwayat" di halaman detail).
+ * Backend belum punya kolom document_id di ActivityLog maupun endpoint-nya,
+ * jadi di mode backend kita kembalikan `null` agar UI menampilkan teks fallback.
+ */
+export async function fetchDocumentHistory(documentId: string): Promise<ActivityLog[] | null> {
+  if (env.USE_MOCKS) return mockAuditStore.getDocumentHistory(documentId);
+  return null;
 }
 
 /** Ambil CSV export (string mentah) — di mock disusun dari localStorage. */

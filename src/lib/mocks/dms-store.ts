@@ -217,7 +217,7 @@ export const mockStore = {
       created_at: doc.created_at,
     });
     save(data);
-    recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`);
+    recordActivity("CREATE_DOCUMENT", `Mengunggah dokumen "${doc.title}" (v1)`, { document_id: doc.id });
     return delay(doc);
   },
 
@@ -241,7 +241,9 @@ export const mockStore = {
     doc.title = title.trim();
     doc.updated_at = new Date().toISOString();
     save(data);
-    recordActivity("RENAME_DOCUMENT", `Mengganti judul dokumen "${oldTitle}" menjadi "${doc.title}"`);
+    recordActivity("RENAME_DOCUMENT", `Mengganti judul dokumen "${oldTitle}" menjadi "${doc.title}"`, {
+      document_id: id,
+    });
     return delay(doc);
   },
 
@@ -251,7 +253,9 @@ export const mockStore = {
     data.documents = data.documents.filter((d) => d.id !== id);
     data.versions = data.versions.filter((v) => v.document_id !== id);
     save(data);
-    recordActivity("DELETE_DOCUMENT", `Menghapus dokumen "${title}" beserta seluruh versinya`);
+    recordActivity("DELETE_DOCUMENT", `Menghapus dokumen "${title}" beserta seluruh versinya`, {
+      document_id: id,
+    });
     return delay(undefined);
   },
 
@@ -281,6 +285,7 @@ export const mockStore = {
     recordActivity(
       "UPLOAD_VERSION",
       `Mengunggah versi ${versionNumber} dokumen "${doc.title}"${input.changelog ? ` — ${input.changelog}` : ""}`,
+      { document_id: id },
     );
     return delay(doc);
   },

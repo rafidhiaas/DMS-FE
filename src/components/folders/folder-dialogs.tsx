@@ -35,6 +35,21 @@ import {
 /* `items` agar trigger Select menampilkan ".pdf", bukan "pdf" (Base UI). */
 const EXTENSION_ITEMS = ALLOWED_EXTENSIONS.map((ext) => ({ value: ext, label: `.${ext}` }));
 
+/** Ringkasan berkas dari <input type=file> / drag-and-drop untuk mengisi form unggah. */
+export function describeFile(file: File): {
+  title: string;
+  extension: AllowedExtension | null;
+  size_bytes: number;
+} {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const supported = (ALLOWED_EXTENSIONS as readonly string[]).includes(ext);
+  return {
+    title: file.name.replace(/\.[^.]+$/, ""),
+    extension: supported ? (ext as AllowedExtension) : null,
+    size_bytes: file.size || 102400,
+  };
+}
+
 /* ------------------------------ Buat Folder ------------------------------ */
 
 export function CreateFolderDialog({
@@ -93,27 +108,39 @@ export function CreateDocumentDialog({
   onOpenChange,
   onSubmit,
   pending,
+  initialFile = null,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSubmit: (input: { title: string; extension: string; size_bytes: number }) => void;
   pending: boolean;
+  /** Berkas hasil drag-and-drop — mengisi form saat dialog dibuka (dialog di-remount via key). */
+  initialFile?: File | null;
 }) {
-  const [title, setTitle] = useState("");
-  const [extension, setExtension] = useState<AllowedExtension>("pdf");
-  const [sizeBytes, setSizeBytes] = useState<number>(102400);
+  const initial = initialFile ? describeFile(initialFile) : null;
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [extension, setExtension] = useState<AllowedExtension>(initial?.extension ?? "pdf");
+  const [sizeBytes, setSizeBytes] = useState<number>(initial?.size_bytes ?? 102400);
+  const [fileName, setFileName] = useState<string | null>(initialFile?.name ?? null);
+
+  function applyFile(file: File) {
+    const info = describeFile(file);
+    if (info.extension) setExtension(info.extension);
+    setSizeBytes(info.size_bytes);
+    setFileName(file.name);
+    if (!title.trim()) setTitle(info.title);
+  }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if ((ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
-      setExtension(ext as AllowedExtension);
-    }
-    setSizeBytes(file.size || 102400);
-    if (!title.trim()) {
-      setTitle(file.name.replace(/\.[^.]+$/, ""));
-    }
+    if (file) applyFile(file);
+  }
+
+  /* Zona pilih berkas di dalam dialog juga menerima drop langsung. */
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) applyFile(file);
   }
 
   const valid = title.trim().length > 0 && sizeBytes > 0;
@@ -129,9 +156,15 @@ export function CreateDocumentDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-accent">
+          <label
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-accent"
+          >
             <UploadCloud className="size-6" />
-            <span>Klik untuk memilih berkas</span>
+            <span className={fileName ? "font-medium text-foreground" : undefined}>
+              {fileName ?? "Klik untuk memilih berkas, atau seret ke sini"}
+            </span>
             <span className="text-xs">
               {ALLOWED_EXTENSIONS.join(", ")} · maks 500MB
             </span>

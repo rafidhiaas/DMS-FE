@@ -29,6 +29,7 @@ function useInvalidateShares(documentId: string) {
   return () => {
     qc.invalidateQueries({ queryKey: shareKeys.documentShares(documentId) });
     qc.invalidateQueries({ queryKey: shareKeys.sharedWithMe });
+    qc.invalidateQueries({ queryKey: ["document-history", documentId] });
   };
 }
 

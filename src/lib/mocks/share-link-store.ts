@@ -88,6 +88,7 @@ export const mockShareLinkStore = {
     recordActivity(
       "CREATE_SHARE_LINK",
       `Membuat tautan publik (${link.access}, ${expires_at ? `berlaku ${input.expires_in_days} hari` : "tanpa batas"}) untuk dokumen "${doc.title}"`,
+      { document_id: documentId },
     );
     return delay(link);
   },
@@ -101,6 +102,7 @@ export const mockShareLinkStore = {
     recordActivity(
       "REVOKE_SHARE_LINK",
       `Mencabut tautan publik untuk dokumen "${doc?.title ?? link.document_id}"`,
+      { document_id: link.document_id },
     );
     return delay(undefined);
   },
@@ -121,7 +123,9 @@ export const mockShareLinkStore = {
 
     link.access_count += 1;
     save(links);
-    recordActivity("ACCESS_SHARE_LINK", `Dokumen "${doc.title}" dibuka via tautan publik`);
+    recordActivity("ACCESS_SHARE_LINK", `Dokumen "${doc.title}" dibuka via tautan publik`, {
+      document_id: doc.id,
+    });
 
     return delay({
       link,

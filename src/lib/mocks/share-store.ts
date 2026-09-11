@@ -141,6 +141,7 @@ export const mockShareStore = {
     recordActivity(
       "SHARE_DOCUMENT",
       `Membagikan dokumen "${doc.title}" ke user ${target.email} dengan akses ${input.access_level}`,
+      { document_id: documentId },
     );
     return delay({ ...share, user: target });
   },
@@ -152,7 +153,9 @@ export const mockShareStore = {
     if (!share) throw new Error("Data akses berbagi tidak ditemukan.");
     share.access_level = access_level;
     save(shares);
-    recordActivity("UPDATE_SHARE_ACCESS", `Mengubah level akses share menjadi ${access_level}`);
+    recordActivity("UPDATE_SHARE_ACCESS", `Mengubah level akses share menjadi ${access_level}`, {
+      document_id: share.document_id,
+    });
     return delay({ ...share, user: resolveUser(share.user_id) });
   },
 
@@ -163,7 +166,9 @@ export const mockShareStore = {
     if (!share) throw new Error("Data akses berbagi tidak ditemukan.");
     const doc = peekDocuments().find((d) => d.id === share.document_id);
     save(shares.filter((s) => s.id !== shareId));
-    recordActivity("REVOKE_SHARE", `Mencabut akses share untuk dokumen "${doc?.title ?? share.document_id}"`);
+    recordActivity("REVOKE_SHARE", `Mencabut akses share untuk dokumen "${doc?.title ?? share.document_id}"`, {
+      document_id: share.document_id,
+    });
     return delay(undefined);
   },
 };
