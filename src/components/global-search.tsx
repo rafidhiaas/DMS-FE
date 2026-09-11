@@ -17,7 +17,14 @@ import { FileIcon } from "@/components/folders/file-icon";
  * Pencarian global (folder + dokumen) ala Paperless-ngx: satu kotak di navigasi,
  * hasil terkelompok, navigasi keyboard, pintasan Ctrl/⌘+K.
  */
-export function GlobalSearch({ tone = "sidebar" }: { tone?: "sidebar" | "header" }) {
+export function GlobalSearch({
+  tone = "sidebar",
+  compact = false,
+}: {
+  tone?: "sidebar" | "header";
+  /** Hanya ikon (sidebar ramping). */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -37,23 +44,29 @@ export function GlobalSearch({ tone = "sidebar" }: { tone?: "sidebar" | "header"
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Cari folder atau dokumen"
+        title={compact ? "Cari (Ctrl+K)" : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-[13px] transition-colors",
+          "flex items-center gap-2 rounded-sm border text-left text-[13px] transition-colors",
+          compact ? "size-9 justify-center" : "w-full px-3 py-2",
           tone === "sidebar"
             ? "border-sidebar-border bg-sidebar-accent/40 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
             : "h-8 w-auto border-input bg-transparent text-muted-foreground hover:bg-muted",
         )}
       >
         <Search className="size-4 shrink-0" />
-        <span className="flex-1 truncate">Cari…</span>
-        <kbd
-          className={cn(
-            "hidden rounded-sm border px-1 font-mono text-[10px] sm:inline",
-            tone === "sidebar" ? "border-sidebar-border" : "border-rule",
-          )}
-        >
-          Ctrl K
-        </kbd>
+        {!compact && (
+          <>
+            <span className="flex-1 truncate">Cari…</span>
+            <kbd
+              className={cn(
+                "hidden rounded-sm border px-1 font-mono text-[10px] sm:inline",
+                tone === "sidebar" ? "border-sidebar-border" : "border-rule",
+              )}
+            >
+              Ctrl K
+            </kbd>
+          </>
+        )}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
