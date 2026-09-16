@@ -23,20 +23,38 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const data = await upstream.json().catch(() => ({}));
+  const raw = await upstream.json().catch(() => ({}));
 
   if (!upstream.ok) {
     return NextResponse.json(
-      { message: data.message ?? "Login gagal." },
+      { message: raw.message ?? "Login gagal." },
       { status: upstream.status },
     );
   }
 
-  const res = NextResponse.json({ message: data.message, user: data.user });
+  // Handle wrapped response: { success, data: { user, accessToken, refreshToken } }
+  const payload = raw.data ?? raw;
+
+  if (!payload.accessToken || !payload.refreshToken) {
+    return NextResponse.json(
+      { message: "Respons login tidak valid dari server." },
+      { status: 502 },
+    );
+  }
+
+  const res = NextResponse.json({
+    message: raw.message ?? "Login berhasil",
+    user: payload.user,
+  });
+
   applyAuthCookies(
     res,
-    { accessToken: data.accessToken, refreshToken: data.refreshToken },
-    data.user,
+    {
+      accessToken: payload.accessToken,
+      refreshToken: payload.refreshToken,
+    },
+    payload.user,
   );
+
   return res;
 }

@@ -43,7 +43,7 @@ async function handler(
 
   // Access token kedaluwarsa / hilang → coba refresh.
   if (upstream.status === 401 && refreshToken) {
-    const refreshRes = await fetch(`${env.BACKEND_API_URL}/api/auth/refresh`, {
+    const refreshRes = await fetch(`${env.BACKEND_API_URL}/api/auth/refresh-token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
@@ -51,14 +51,15 @@ async function handler(
     }).catch(() => null);
 
     if (refreshRes?.ok) {
-      const tokens = await refreshRes.json();
-      rotated = {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      };
-      accessToken = tokens.accessToken;
-      upstream = await forward(accessToken);
-    } else {
+        const raw = await refreshRes.json();
+        const tokens = raw.data ?? raw;
+        rotated = {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        };
+        accessToken = tokens.accessToken;
+        upstream = await forward(accessToken);
+      } else {
       const expired = NextResponse.json(
         { message: "Sesi berakhir. Silakan login kembali." },
         { status: 401 },
