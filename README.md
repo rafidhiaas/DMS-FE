@@ -49,7 +49,18 @@ Saat development, halaman login menampilkan daftar ini — klik untuk mengisi fo
 Yang sengaja tetap di browser (preferensi per-perangkat, bukan data bisnis): tema, mode tampilan
 folder, sidebar ramping, tampilan tersimpan, “terakhir dibuka”, dan cache thumbnail (IndexedDB).
 
-## Pemeriksaan
+## Pengujian
+
+Aplikasi harus hidup (database + backend + frontend), lalu:
+
+```bash
+npm test                 # 114 cek e2e: checklist QA, sesi/keamanan, fitur, hak akses per peran
+npm run test:checklist   # checklist QA butir per butir (navigasi di browser + CRUD/sharing/workflow/users)
+```
+
+Rincian, catatan penting, dan checklist manual: [docs/TESTING.md](docs/TESTING.md).
+
+## Pemeriksaan statis
 
 ```bash
 npx tsc --noEmit

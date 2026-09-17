@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node tests/checklist.mjs && node tests/session.mjs && node tests/features.mjs && node tests/roles.mjs",
+    "test:checklist": "node tests/checklist.mjs",
+    "test:session": "node tests/session.mjs",
+    "test:features": "node tests/features.mjs",
+    "test:roles": "node tests/roles.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
