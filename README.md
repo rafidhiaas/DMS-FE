@@ -237,3 +237,20 @@ text
 ---
 
 ## 🚀 Quick Start
+
+### Prasyarat
+
+- **Node.js** v20+
+- **PostgreSQL** 14+
+- **npm** / pnpm / yarn
+- **Git**
+
+### 1. Clone Repo
+
+```bash
+# Buat folder project
+mkdir DMS-Project && cd DMS-Project
+
+# Clone frontend & backend
+git clone https://github.com/rafidhiaas/DMS-BE.git
+git clone https://github.com/rafidhiaas/DMS-FE.git
