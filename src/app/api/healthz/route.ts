@@ -5,7 +5,8 @@ import { env } from "@/lib/env";
 export async function GET() {
   let backend: "up" | "down" = "down";
   try {
-    const res = await fetch(`${env.BACKEND_API_URL}/`, {
+    // Express hanya punya GET /healthz (root "/" → 404, jadi selalu terbaca "down").
+    const res = await fetch(`${env.BACKEND_API_URL}/healthz`, {
       cache: "no-store",
       signal: AbortSignal.timeout(2000),
     });
