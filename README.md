@@ -2,9 +2,9 @@
 
 # 🔐 Secure DMS
 
-### Enterprise Document Management System
+### Electronic Document Management System
 
-Platform manajemen dokumen tingkat enterprise dengan fokus pada **kerahasiaan data**, **struktur hierarkis**, **versioning**, **audit trail immutable**, dan **kepatuhan** (UU PDP, ISO 27001, SOC 2).
+Platform manajemen dokumen tingkat enterprise dengan fokus pada **kerahasiaan data**, **struktur hierarkis**, **versioning**, **audit trail immutable**, dan **kepatuhan**.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org)
 [![Express](https://img.shields.io/badge/Express-5.x-000?logo=express)](https://expressjs.com)
