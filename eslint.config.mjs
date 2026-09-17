@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Berkas vendor (worker pdf.js yang disalin ke public/) — bukan kode kita.
+    "public/pdf.worker.min.mjs",
   ]),
 ]);
 
