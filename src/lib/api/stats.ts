@@ -1,84 +1,19 @@
-import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { peekDocuments, peekFolders } from "@/lib/mocks/dms-store";
-import { peekMeta } from "@/lib/mocks/meta-store";
-import { mockAuditStore } from "@/lib/mocks/audit-store";
-import { fetchActivityLogs } from "@/lib/api/activity-logs";
-import type { DocumentItem, DocumentStatus, FolderContents } from "@/types";
+import type { DocumentItem, DocumentStatus } from "@/types";
+import { mapDocument, unwrap, type BeDocument } from "@/lib/api/_transform";
 
 /**
- * Statistik ringkas untuk dashboard.
- * CATATAN GAP BACKEND: Express belum punya endpoint statistik/agregasi maupun
- * "list dokumen per status", jadi mode non-mock hanya bisa best-effort;
- * nilai `null` berarti "tidak tersedia" dan panel terkait disembunyikan/dirender "—".
+ * Statistik dashboard → backend `GET /stats/dashboard` (satu request, dibatasi ke
+ * data yang boleh dilihat user). Fungsi-fungsi di bawah berbagi hasil request yang sama.
  */
 export interface DmsStats {
   folders: number | null;
   documents: number | null;
   totalBytes: number | null;
-  /** Jumlah dokumen per status siklus hidup (null = data tidak tersedia). */
+  /** Jumlah dokumen per status siklus hidup. */
   byStatus: Record<DocumentStatus, number> | null;
-  /** Distribusi per tag / tipe dokumen (mock; null di mode backend). */
   byTag: Array<{ id: string; name: string; color?: string; count: number }> | null;
   byType: Array<{ id: string; name: string; count: number }> | null;
-}
-
-export async function fetchDmsStats(): Promise<DmsStats> {
-  if (env.USE_MOCKS) {
-    const folders = peekFolders();
-    const docs = peekDocuments();
-    const byStatus: Record<DocumentStatus, number> = {
-      DRAFT: 0,
-      PENDING_REVIEW: 0,
-      APPROVED: 0,
-      ARCHIVED: 0,
-    };
-    for (const d of docs) byStatus[d.status] += 1;
-    const byTag = peekMeta("tag")
-      .map((t) => ({ id: t.id, name: t.name, color: t.color, count: docs.filter((d) => (d.tag_ids ?? []).includes(t.id)).length }))
-      .filter((t) => t.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-    const byType = peekMeta("type")
-      .map((t) => ({ id: t.id, name: t.name, count: docs.filter((d) => d.document_type_id === t.id).length }))
-      .filter((t) => t.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-    return {
-      folders: folders.length,
-      documents: docs.length,
-      totalBytes: docs.reduce((sum, d) => sum + Number(d.size_bytes), 0),
-      byStatus,
-      byTag,
-      byType,
-    };
-  }
-  const { data } = await api.get<FolderContents>("/folders/root");
-  return {
-    folders: data.subFolders.length,
-    documents: null,
-    totalBytes: null,
-    byStatus: null,
-    byTag: null,
-    byType: null,
-  };
-}
-
-/** Dokumen terbaru (mock: seluruh store; non-mock: belum tersedia tanpa endpoint agregasi). */
-export async function fetchRecentDocuments(limit = 5): Promise<DocumentItem[]> {
-  if (!env.USE_MOCKS) return [];
-  return [...peekDocuments()]
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-    .slice(0, limit);
-}
-
-/** Antrian dokumen berstatus Menunggu Review (null = tidak tersedia di mode backend). */
-export async function fetchPendingReview(limit = 5): Promise<DocumentItem[] | null> {
-  if (!env.USE_MOCKS) return null;
-  return [...peekDocuments()]
-    .filter((d) => d.status === "PENDING_REVIEW")
-    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-    .slice(0, limit);
 }
 
 export interface ActivityPoint {
@@ -86,20 +21,61 @@ export interface ActivityPoint {
   count: number;
 }
 
-/** Jumlah aktivitas per hari, N hari terakhir (non-mock: bucket dari halaman log pertama). */
-export async function fetchActivitySeries(days = 7): Promise<ActivityPoint[]> {
-  if (env.USE_MOCKS) return mockAuditStore.getSeries(days);
+interface BeDashboard {
+  folders: number;
+  documents: number;
+  totalBytes: string | number;
+  byStatus: Record<DocumentStatus, number>;
+  byTag: Array<{ id: string; name: string; color?: string; count: number }>;
+  byType: Array<{ id: string; name: string; count: number }>;
+  recentDocuments: BeDocument[];
+  /** null untuk non-admin (antrian review hanya relevan bagi admin). */
+  pendingReview: BeDocument[] | null;
+  activitySeries: ActivityPoint[];
+}
 
-  const { logs } = await fetchActivityLogs({ page: 1, limit: 100 });
-  const series: ActivityPoint[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toDateString();
-    series.push({
-      date: d.toISOString(),
-      count: logs.filter((l) => new Date(l.created_at).toDateString() === key).length,
-    });
-  }
-  return series;
+// Dashboard memanggil 4 fungsi sekaligus → satukan ke satu request yang sedang berjalan.
+let inflight: { days: number; at: number; promise: Promise<BeDashboard> } | null = null;
+
+function fetchDashboard(days = 7): Promise<BeDashboard> {
+  const now = Date.now();
+  if (inflight && inflight.days === days && now - inflight.at < 2_000) return inflight.promise;
+  const promise = api
+    .get<unknown>("/stats/dashboard", { params: { days } })
+    .then(({ data }) => unwrap<BeDashboard>(data));
+  inflight = { days, at: now, promise };
+  promise.catch(() => {
+    if (inflight?.promise === promise) inflight = null;
+  });
+  return promise;
+}
+
+export async function fetchDmsStats(): Promise<DmsStats> {
+  const d = await fetchDashboard();
+  return {
+    folders: d.folders,
+    documents: d.documents,
+    totalBytes: Number(d.totalBytes ?? 0),
+    byStatus: d.byStatus,
+    byTag: d.byTag,
+    byType: d.byType,
+  };
+}
+
+/** Dokumen terbaru yang boleh dilihat user. */
+export async function fetchRecentDocuments(limit = 5): Promise<DocumentItem[]> {
+  const d = await fetchDashboard();
+  return d.recentDocuments.slice(0, limit).map(mapDocument) as DocumentItem[];
+}
+
+/** Antrian dokumen berstatus Menunggu Review (null = bukan admin). */
+export async function fetchPendingReview(limit = 5): Promise<DocumentItem[] | null> {
+  const d = await fetchDashboard();
+  if (!d.pendingReview) return null;
+  return d.pendingReview.slice(0, limit).map(mapDocument) as DocumentItem[];
+}
+
+/** Jumlah aktivitas per hari, N hari terakhir. */
+export async function fetchActivitySeries(days = 7): Promise<ActivityPoint[]> {
+  return (await fetchDashboard(days)).activitySeries;
 }

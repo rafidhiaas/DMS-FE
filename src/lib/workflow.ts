@@ -2,8 +2,8 @@ import type { DocumentStatus, Role } from "@/types";
 
 /**
  * Alur status dokumen (DRAFT → PENDING_REVIEW → APPROVED → ARCHIVED) dan siapa
- * yang boleh memindahkannya. Backend punya enum statusnya tetapi belum punya
- * endpoint perubahan status — FE mock mengimplementasikan aturan ini.
+ * yang boleh memindahkannya. Dipakai UI untuk menampilkan aksi yang relevan;
+ * backend (`PATCH /documents/:id/status`, lib/workflow.ts) menegakkan aturan yang sama.
  */
 
 export type WorkflowIntent = "primary" | "outline" | "destructive";
@@ -69,7 +69,7 @@ export function workflowActions(status: DocumentStatus, role: Role): WorkflowAct
   return out;
 }
 
-/** Cari aturan transisi from→to yang sah untuk peran ini (dipakai mock store & bulk). */
+/** Cari aturan transisi from→to yang sah untuk peran ini (dipakai aksi massal). */
 export function findTransition(from: DocumentStatus, to: DocumentStatus, role: Role): WorkflowAction | null {
   return workflowActions(from, role).find((a) => a.to === to) ?? null;
 }

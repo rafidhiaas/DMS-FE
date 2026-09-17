@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Check, Copy, Link2, Loader2, Plus, Trash2 } from "lucide-react";
 import { useShareLinks, useCreateShareLink, useRevokeShareLink } from "@/hooks/use-share-links";
 import { shareLinkUrl } from "@/lib/api/share-links";
-import { isExpired } from "@/lib/mocks/share-link-store";
+import { isExpired } from "@/lib/domain";
 import { formatRemaining, SHARE_LINK_EXPIRY_OPTIONS } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ShareLink, ShareLinkAccess } from "@/types";

@@ -1,35 +1,52 @@
-import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { mockMetaStore } from "@/lib/mocks/meta-store";
 import type { CustomField, CustomFieldInput, CustomFieldValue } from "@/types";
+import { unwrap } from "@/lib/api/_transform";
 
 /**
  * Bidang khusus (custom fields) ala Paperless: definisi bidang (teks, angka, tanggal,
  * ya/tidak, pilihan, uang, tautan) + nilai per dokumen di `document.custom_fields`.
- * Backend belum punya; usulan endpoint: GET/POST /custom-fields, PATCH/DELETE /custom-fields/:id.
+ * Backend: `/api/metadata/custom-fields`.
  */
 
+const PATH = "/metadata/custom-fields";
+
+interface BeCustomField {
+  id: string;
+  name: string;
+  type: CustomField["type"];
+  options?: string[];
+  createdAt?: string;
+  documentCount?: number;
+}
+
+function mapField(f: BeCustomField): CustomField {
+  return {
+    id: f.id,
+    name: f.name,
+    type: f.type,
+    ...(f.type === "select" ? { options: f.options ?? [] } : {}),
+    created_at: f.createdAt ?? "",
+    document_count: f.documentCount ?? 0,
+  };
+}
+
 export async function fetchCustomFields(): Promise<CustomField[]> {
-  if (env.USE_MOCKS) return mockMetaStore.listFields();
-  const { data } = await api.get<{ items: CustomField[] }>("/custom-fields");
-  return data.items;
+  const { data } = await api.get<unknown>(PATH);
+  return (unwrap<BeCustomField[]>(data) ?? []).map(mapField);
 }
 
 export async function createCustomField(input: CustomFieldInput): Promise<CustomField> {
-  if (env.USE_MOCKS) return mockMetaStore.createField(input);
-  const { data } = await api.post<{ item: CustomField }>("/custom-fields", input);
-  return data.item;
+  const { data } = await api.post<unknown>(PATH, input);
+  return mapField(unwrap<BeCustomField>(data));
 }
 
 export async function updateCustomField(id: string, patch: Partial<CustomFieldInput>): Promise<CustomField> {
-  if (env.USE_MOCKS) return mockMetaStore.updateField(id, patch);
-  const { data } = await api.patch<{ item: CustomField }>(`/custom-fields/${id}`, patch);
-  return data.item;
+  const { data } = await api.patch<unknown>(`${PATH}/${id}`, patch);
+  return mapField(unwrap<BeCustomField>(data));
 }
 
 export async function deleteCustomField(id: string): Promise<void> {
-  if (env.USE_MOCKS) return mockMetaStore.removeField(id);
-  await api.delete(`/custom-fields/${id}`);
+  await api.delete(`${PATH}/${id}`);
 }
 
 export const CUSTOM_FIELD_TYPE_LABELS: Record<CustomField["type"], string> = {

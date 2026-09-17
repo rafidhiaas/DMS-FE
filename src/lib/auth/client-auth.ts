@@ -1,4 +1,4 @@
-import type { AuthUser, Role } from "@/types";
+import type { AuthUser } from "@/types";
 
 /** Helper client-side untuk endpoint auth BFF (/api/auth/*), di luar proxy /api/bff. */
 
@@ -6,17 +6,6 @@ interface LoginResult {
   ok: boolean;
   user?: AuthUser;
   message?: string;
-}
-
-/** MOCK — login cepat per-peran tanpa backend (aktif saat NEXT_PUBLIC_USE_MOCKS=true). */
-export async function mockLoginRequest(role: Role): Promise<LoginResult> {
-  const res = await fetch("/api/auth/mock-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role }),
-  });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, user: data.user, message: data.message };
 }
 
 export async function loginRequest(

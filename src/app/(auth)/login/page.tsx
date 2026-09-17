@@ -6,16 +6,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowRight, Loader2 } from "lucide-react";
-import { loginRequest, mockLoginRequest } from "@/lib/auth/client-auth";
+import { Loader2 } from "lucide-react";
+import { loginRequest } from "@/lib/auth/client-auth";
 import { ROLE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email wajib diisi.").email("Format email tidak valid."),
@@ -24,73 +22,21 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-/** Panel login cepat per-peran (mode demo tanpa backend). */
-const MOCK_ROLES: { role: Role; code: string; desc: string }[] = [
-  { role: "SUPER_ADMIN", code: "SA", desc: "Akses global penuh ke seluruh sistem." },
-  { role: "COMPANY_ADMIN", code: "CA", desc: "Kelola dokumen & pengguna perusahaan." },
-  { role: "AUDITOR", code: "AU", desc: "Baca-saja, plus audit log." },
-  { role: "EMPLOYEE", code: "EM", desc: "Dokumen sendiri & yang dibagikan." },
+/**
+ * Akun demo hasil `npm run seed` di backend — hanya tampil saat development.
+ * Klik = isi form; login tetap lewat backend sungguhan.
+ */
+const IS_DEV = process.env.NODE_ENV !== "production";
+const DEMO_PASSWORD = "Password123!";
+const DEMO_ACCOUNTS: { role: Role; code: string; email: string }[] = [
+  { role: "SUPER_ADMIN", code: "SA", email: "super@dms.test" },
+  { role: "COMPANY_ADMIN", code: "CA", email: "admin@dms.test" },
+  { role: "AUDITOR", code: "AU", email: "auditor@dms.test" },
+  { role: "EMPLOYEE", code: "EM", email: "karyawan@dms.test" },
 ];
 
-function MockLoginPanel() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
-  const [loadingRole, setLoadingRole] = useState<Role | null>(null);
-
-  async function pick(role: Role) {
-    setLoadingRole(role);
-    const result = await mockLoginRequest(role);
-    if (!result.ok) {
-      setLoadingRole(null);
-      toast.error(result.message ?? "Gagal masuk.");
-      return;
-    }
-    toast.success(`Masuk sebagai ${ROLE_LABELS[role]}.`);
-    router.replace(next);
-    router.refresh();
-  }
-
-  return (
-    <div className="ledger border-y border-rule">
-      {MOCK_ROLES.map(({ role, code, desc }) => {
-        const busy = loadingRole === role;
-        return (
-          <button
-            key={role}
-            type="button"
-            onClick={() => pick(role)}
-            disabled={loadingRole !== null}
-            className={cn(
-              "group -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 px-3 py-3 text-left transition-colors",
-              "hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:opacity-60",
-            )}
-          >
-            <span className="w-7 font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
-              {code}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-medium leading-tight">
-                {ROLE_LABELS[role]}
-              </span>
-              <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
-                {desc}
-              </span>
-            </span>
-            {busy ? (
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            ) : (
-              <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Form login nyata (email + password) — memerlukan backend Express aktif. */
-function RealLoginForm() {
+/** Form login (email + password) ke backend Express lewat BFF. */
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
@@ -99,6 +45,7 @@ function RealLoginForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -159,6 +106,39 @@ function RealLoginForm() {
         {submitting && <Loader2 className="size-4 animate-spin" />}
         {submitting ? "Memproses…" : "Masuk"}
       </Button>
+
+      {IS_DEV && (
+        <div className="border-t border-rule pt-5">
+          <p className="eyebrow">Akun demo (development)</p>
+          <div className="ledger mt-2">
+            {DEMO_ACCOUNTS.map(({ role, code, email }) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => {
+                  setValue("email", email, { shouldValidate: true });
+                  setValue("password", DEMO_PASSWORD, { shouldValidate: true });
+                }}
+                className={cn(
+                  "-mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 px-3 py-2 text-left transition-colors",
+                  "hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
+                )}
+              >
+                <span className="w-7 font-mono text-[11px] tracking-[0.08em] text-muted-foreground">
+                  {code}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium leading-tight">{ROLE_LABELS[role]}</span>
+                  <span className="block truncate font-mono text-[12px] text-muted-foreground">{email}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Klik untuk mengisi form. Akun dibuat oleh <code className="font-mono">npm run seed</code> di backend.
+          </p>
+        </div>
+      )}
     </form>
   );
 }
@@ -171,35 +151,13 @@ function LoginPanel() {
       </div>
 
       <p className="eyebrow rise">Masuk</p>
-      <h1 className="display rise mt-2 text-4xl">
-        {USE_MOCKS ? "Pilih peran untuk mencoba." : "Buka arsip Anda."}
-      </h1>
+      <h1 className="display rise mt-2 text-4xl">Buka arsip Anda.</h1>
       <p className="rise-2 mt-3 text-[15px] leading-relaxed text-muted-foreground">
-        {USE_MOCKS
-          ? "Mode demo aktif. Tiap peran membuka menu dan hak akses yang berbeda."
-          : "Masuk dengan akun yang diberikan administrator perusahaan Anda."}
+        Masuk dengan akun yang diberikan administrator perusahaan Anda.
       </p>
 
-      <div className="rise-3 mt-8 space-y-8">
-        {USE_MOCKS ? (
-          <>
-            <MockLoginPanel />
-            <details className="group">
-              <summary className="eyebrow cursor-pointer list-none select-none hover:text-foreground">
-                <span className="group-open:hidden">Atau masuk dengan akun backend ↓</span>
-                <span className="hidden group-open:inline">Masuk dengan akun backend</span>
-              </summary>
-              <div className="mt-4">
-                <RealLoginForm />
-                <p className="mt-3 text-[12px] text-muted-foreground">
-                  Memerlukan backend Express dan database aktif.
-                </p>
-              </div>
-            </details>
-          </>
-        ) : (
-          <RealLoginForm />
-        )}
+      <div className="rise-3 mt-8">
+        <LoginForm />
       </div>
     </div>
   );

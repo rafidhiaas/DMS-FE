@@ -18,7 +18,7 @@ export function useActivityLogs(input: { action?: string; page: number; limit: n
   });
 }
 
-/** Riwayat aktivitas satu dokumen; `null` berarti backend belum mendukung. */
+/** Riwayat aktivitas satu dokumen (tab "Riwayat"). */
 export function useDocumentHistory(documentId: string, enabled = true) {
   return useQuery({
     queryKey: auditKeys.documentHistory(documentId),

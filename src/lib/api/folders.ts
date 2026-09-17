@@ -1,6 +1,4 @@
-import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { mockStore } from "@/lib/mocks/dms-store";
 import type { DocumentItem, Folder, FolderContents } from "@/types";
 import {
   mapFolder,
@@ -10,61 +8,56 @@ import {
   type BeFolder,
 } from "@/lib/api/_transform";
 
-/** Fetch tree folder lengkap dari BE. */
-async function fetchTree(): Promise<BeFolder[]> {
-  const { data } = await api.get<unknown>("/folders");
-  return unwrap<BeFolder[]>(data) ?? [];
-}
+/**
+ * Lapisan akses data Folder → backend Express `/api/folders` (lewat BFF).
+ * Hierarki disusun di klien dari daftar datar `GET /folders/all`
+ * (tree `GET /folders` di backend hanya sampai 3 tingkat).
+ */
 
-/** Jalur dari root ke folder `id` (termasuk folder itu sendiri); null bila tidak ada. */
-function findPath(nodes: BeFolder[], id: string): BeFolder[] | null {
-  for (const n of nodes) {
-    if (n.id === id) return [n];
-    const rest = n.subFolders ? findPath(n.subFolders, id) : null;
-    if (rest) return [n, ...rest];
-  }
-  return null;
-}
-
-function findFolder(nodes: BeFolder[], id: string): BeFolder | null {
-  return findPath(nodes, id)?.at(-1) ?? null;
+async function fetchFlat(): Promise<Folder[]> {
+  const { data } = await api.get<unknown>("/folders/all");
+  return (unwrap<BeFolder[]>(data) ?? []).map(mapFolder) as Folder[];
 }
 
 // ============ READ ============
 export async function fetchFolderContents(folderId: string): Promise<FolderContents> {
-  if (env.USE_MOCKS) return mockStore.getContents(folderId);
-
-  // Tree untuk subfolders
-  const tree = await fetchTree();
+  const folders = await fetchFlat();
 
   if (folderId === "root") {
     return {
       folderId: null,
-      subFolders: tree.map(mapFolder) as Folder[],
+      // Induk yang tidak terlihat (mis. milik user lain) → tampil di tingkat atas.
+      subFolders: folders.filter(
+        (f) => !f.parent_folder_id || !folders.some((p) => p.id === f.parent_folder_id),
+      ),
       documents: [],
     };
   }
 
-  // Docs di folder ini (BE support filter folderId)
   const docsRes = await api.get<unknown>("/documents", {
-    params: { folderId, limit: 500 },
+    params: { folderId, limit: 1000 },
   });
   const docsPayload = unwrap<{ documents?: BeDocument[] } | null>(docsRes.data);
-  const documents = (docsPayload?.documents ?? []).map(mapDocument) as DocumentItem[];
 
-  const found = findFolder(tree, folderId);
   return {
     folderId,
-    subFolders: (found?.subFolders ?? []).map(mapFolder) as Folder[],
-    documents,
+    subFolders: folders.filter((f) => f.parent_folder_id === folderId),
+    documents: (docsPayload?.documents ?? []).map(mapDocument) as DocumentItem[],
   };
 }
 
+/** Jalur dari root ke folder (termasuk folder itu sendiri) untuk breadcrumb. */
 export async function fetchFolderPath(folderId: string): Promise<Folder[]> {
-  if (env.USE_MOCKS) return mockStore.getFolderPath(folderId);
   if (folderId === "root") return [];
-  const path = findPath(await fetchTree(), folderId);
-  return (path ?? []).map(mapFolder) as Folder[];
+  const folders = await fetchFlat();
+  const path: Folder[] = [];
+  let cur = folders.find((f) => f.id === folderId);
+  while (cur && path.length < 50) {
+    path.unshift(cur);
+    const parentId: string | null = cur.parent_folder_id;
+    cur = parentId ? folders.find((f) => f.id === parentId) : undefined;
+  }
+  return path;
 }
 
 // ============ CREATE ============
@@ -73,24 +66,23 @@ export async function createFolder(input: {
   parent_folder_id: string | null;
   description?: string;
 }): Promise<Folder> {
-  if (env.USE_MOCKS) return mockStore.createFolder(input);
   const { data } = await api.post<unknown>("/folders", {
     name: input.name,
     description: input.description,
-    parentFolderId: input.parent_folder_id,
+    // BE: optional (bukan nullable) → jangan kirim null untuk Root
+    ...(input.parent_folder_id ? { parentFolderId: input.parent_folder_id } : {}),
   });
   return mapFolder(unwrap<BeFolder>(data)) as Folder;
 }
 
 // ============ UPDATE ============
 export async function renameFolder(id: string, name: string): Promise<Folder> {
-  if (env.USE_MOCKS) return mockStore.renameFolder(id, name);
   const { data } = await api.patch<unknown>(`/folders/${id}/rename`, { name });
   return mapFolder(unwrap<BeFolder>(data)) as Folder;
 }
 
+/** `newParentId` null = pindah ke Root. */
 export async function moveFolder(id: string, newParentId: string | null): Promise<Folder> {
-  if (env.USE_MOCKS) return mockStore.moveFolder(id, newParentId);
   const { data } = await api.patch<unknown>(`/folders/${id}/move`, {
     parentFolderId: newParentId,
   });
@@ -99,21 +91,11 @@ export async function moveFolder(id: string, newParentId: string | null): Promis
 
 // ============ DELETE ============
 export async function deleteFolder(id: string): Promise<void> {
-  if (env.USE_MOCKS) return mockStore.deleteFolder(id);
   await api.delete(`/folders/${id}`);
 }
 
 // ============ LIST ALL ============
+/** Seluruh folder yang terlihat (untuk pemilih "Pindahkan ke" & aturan otomatisasi). */
 export async function fetchAllFolders(): Promise<Folder[]> {
-  if (env.USE_MOCKS) return mockStore.listFolders();
-  const tree = await fetchTree();
-  const out: Folder[] = [];
-  const walk = (nodes: BeFolder[]) => {
-    for (const n of nodes) {
-      out.push(mapFolder(n) as Folder);
-      if (n.subFolders) walk(n.subFolders);
-    }
-  };
-  walk(tree);
-  return out;
+  return fetchFlat();
 }

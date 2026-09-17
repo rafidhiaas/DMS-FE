@@ -10,7 +10,7 @@ import {
   fetchActivitySeries,
 } from "@/lib/api/stats";
 import { useSharedWithMe } from "@/hooks/use-shares";
-import { useActivityLogs } from "@/hooks/use-audit-logs";
+import { fetchActivityLogs, fetchMyActivity } from "@/lib/api/activity-logs";
 import {
   formatBytes,
   formatDateTime,
@@ -71,7 +71,12 @@ export function DashboardOverview({
     queryFn: () => fetchActivitySeries(7),
   });
   const shared = useSharedWithMe();
-  const activity = useActivityLogs({ page: 1, limit: 5 });
+  // Audit log lengkap hanya untuk admin/auditor; karyawan melihat aktivitasnya sendiri.
+  const activity = useQuery({
+    queryKey: ["dashboard-activity", canSeeAudit],
+    queryFn: async () =>
+      canSeeAudit ? (await fetchActivityLogs({ page: 1, limit: 5 })).logs : fetchMyActivity(5),
+  });
 
   const figures = [
     {
@@ -315,14 +320,14 @@ export function DashboardOverview({
           />
           {activity.isLoading ? (
             <DocListSkeleton />
-          ) : (activity.data?.logs.length ?? 0) === 0 ? (
+          ) : (activity.data?.length ?? 0) === 0 ? (
             <EmptyState
               title="Belum ada aktivitas tercatat."
               className="border-t-0"
             />
           ) : (
             <div className="ledger">
-              {activity.data!.logs.map((log) => {
+              {activity.data!.map((log) => {
                 const meta = actionMeta(log.action);
                 return (
                   <div key={log.id} className="flex items-start gap-4 py-3">

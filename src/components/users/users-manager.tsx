@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Info, Loader2, Pencil, Search, Trash2, UserCheck, UserPlus, UserX } from "lucide-react";
+import { Loader2, Pencil, Search, Trash2, UserCheck, UserPlus, UserX } from "lucide-react";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/use-users";
 import { canManageUser } from "@/lib/api/users";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -80,15 +80,6 @@ export function UsersManager({ actorRole, actorId }: { actorRole: Role; actorId:
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 rounded-md border border-warn/50 bg-warn/10 p-4 text-sm">
-        <Info className="mt-0.5 size-4 shrink-0 text-warn" />
-        <p className="text-foreground/90">
-          Backend baru menyediakan pendaftaran. Tambah, ubah peran, nonaktifkan, dan hapus pengguna di bawah
-          berjalan di <b>mock</b> lokal sampai endpoint <code className="font-mono text-[12px]">/api/users</code>{" "}
-          tersedia. Aturan RBAC sudah diterapkan: Admin Perusahaan tidak dapat menyentuh Super Admin.
-        </p>
-      </div>
-
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-52 flex-1 sm:max-w-sm">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -257,6 +248,7 @@ function UserFormDialog({
   const [name, setName] = useState(initial?.name ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [role, setRole] = useState<Role>(initial?.role ?? (roles.includes("EMPLOYEE") ? "EMPLOYEE" : roles[0]));
+  const [password, setPassword] = useState("");
   const pending = create.isPending || update.isPending;
   const roleItems = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
@@ -269,13 +261,15 @@ function UserFormDialog({
       );
     } else {
       create.mutate(
-        { name: name.trim(), email: email.trim(), role },
+        { name: name.trim(), email: email.trim(), role, password },
         { ...opts, onSuccess: (u) => { toast.success(`Pengguna ${u.email} ditambahkan.`); onOpenChange(false); } },
       );
     }
   }
 
-  const valid = name.trim().length > 0 && (initial ? true : email.trim().length > 0);
+  // Backend: nama min. 2 karakter, kata sandi min. 8 karakter.
+  const valid =
+    name.trim().length >= 2 && (initial ? true : email.trim().length > 0 && password.length >= 8);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -285,7 +279,7 @@ function UserFormDialog({
           <DialogDescription>
             {initial
               ? "Ubah nama atau peran. Email tidak dapat diubah."
-              : "Akun dibuat aktif. Kata sandi awal dikirim oleh backend (mock: tidak ada)."}
+              : "Akun dibuat aktif. Berikan kata sandi awal ini kepada pengguna."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -304,6 +298,19 @@ function UserFormDialog({
               placeholder="nama@perusahaan.com"
             />
           </div>
+          {!initial && (
+            <div className="space-y-2">
+              <Label htmlFor="user-password">Kata sandi awal</Label>
+              <Input
+                id="user-password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimal 8 karakter"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Peran</Label>
             <Select value={role} items={roleItems} onValueChange={(v) => setRole(v as Role)} disabled={lockRole}>

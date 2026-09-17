@@ -35,9 +35,9 @@ export interface DocumentItem {
   status: DocumentStatus;
   created_at: string;
   updated_at: string;
-  /** Terisi bila dokumen berada di Sampah (soft delete — FE mock; backend belum punya). */
+  /** Terisi bila dokumen berada di Sampah (soft delete). */
   deleted_at?: string | null;
-  /* ---- Metadata ala Paperless (FE mock; backend belum punya kolomnya) ---- */
+  /* ---- Metadata ala Paperless ---- */
   tag_ids?: string[];
   document_type_id?: string | null;
   correspondent_id?: string | null;
@@ -48,6 +48,13 @@ export interface DocumentItem {
   description?: string | null;
   /** Nilai bidang khusus per id bidang (lihat CustomField). */
   custom_fields?: Record<string, CustomFieldValue>;
+  /** Hak user yang login atas dokumen ini (hanya ada di respons detail). */
+  user_access?: {
+    is_owner: boolean;
+    access_level: AccessLevel | null;
+    can_edit: boolean;
+    can_download: boolean;
+  };
 }
 
 /* ---------------------------- Bidang khusus ---------------------------- */
@@ -135,7 +142,7 @@ export interface DocumentVersion {
   uploaded_by: string;
   changelog: string | null;
   created_at: string;
-  /** SHA-256 berkas (FE mock) — untuk deteksi duplikat saat unggah. */
+  /** SHA-256 berkas — dipakai backend untuk deteksi duplikat saat unggah. */
   checksum?: string | null;
 }
 
@@ -171,7 +178,7 @@ export interface ActivityLog {
   user?: UserSummary;
   /**
    * Dokumen yang terkait aksi ini (untuk tab "Riwayat" di detail dokumen).
-   * Kolom ini belum ada di backend — FE mock mengisinya, backend mengembalikan undefined.
+   * Backend mengisinya otomatis untuk setiap aksi ber-entitas DOCUMENT.
    */
   document_id?: string | null;
 }
@@ -215,7 +222,7 @@ export type ShareLinkAccess = "VIEWER" | "DOWNLOADER";
 
 /**
  * Tautan publik berbatas waktu ke satu dokumen — sesuai spec ShareLink.
- * Backend belum menyediakan endpoint-nya; FE memakai mock store dulu.
+ * Backend: `/api/shares/documents/:id/links` + `/api/public/share/:token`.
  */
 export interface ShareLink {
   id: string;

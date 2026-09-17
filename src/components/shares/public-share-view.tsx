@@ -56,6 +56,7 @@ export function PublicShareView({ token }: { token: string }) {
         title: doc.title,
         extension: doc.extension,
         current_version: doc.current_version,
+        share_token: token,
       });
       toast.success(downloadToast(result));
     } catch (e) {
@@ -94,7 +95,7 @@ export function PublicShareView({ token }: { token: string }) {
         )}
       </div>
 
-      <DocumentPreview documentId={doc.id} extension={doc.extension} title={doc.title} />
+      <DocumentPreview documentId={doc.id} extension={doc.extension} title={doc.title} shareToken={token} />
 
       <p className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
         <ShieldCheck className="size-3.5" />

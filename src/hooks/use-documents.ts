@@ -66,7 +66,7 @@ export function useDeleteDocument() {
 
 /* -------------------------------- Sampah -------------------------------- */
 
-/** Isi Sampah; `null` berarti backend belum mendukung soft delete. */
+/** Isi Sampah (dokumen soft-delete). */
 export function useTrash() {
   return useQuery({
     queryKey: documentKeys.trash,

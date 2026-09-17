@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { RotateCcw, Trash2, Loader2 } from "lucide-react";
 import { useTrash, useRestoreDocument, usePurgeDocument, useEmptyTrash } from "@/hooks/use-documents";
-import { TRASH_RETENTION_DAYS } from "@/lib/mocks/dms-store";
+import { TRASH_RETENTION_DAYS } from "@/lib/domain";
 import { formatBytes, formatDateTime, STATUS_META } from "@/lib/format";
 import type { TrashItem } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,6 @@ export function TrashView() {
   const [emptyOpen, setEmptyOpen] = useState(false);
 
   const items = trash.data ?? [];
-  const unsupported = trash.data === null;
 
   function handleRestore(item: TrashItem) {
     restore.mutate(item.id, {
@@ -93,11 +92,6 @@ export function TrashView() {
         </div>
       ) : trash.isError ? (
         <EmptyState tone="destructive" title="Gagal memuat sampah" description="Coba muat ulang halaman." />
-      ) : unsupported ? (
-        <EmptyState
-          title="Sampah belum tersedia di mode backend"
-          description="Backend menghapus dokumen secara permanen. Fitur pulihkan menunggu dukungan soft delete di server."
-        />
       ) : items.length === 0 ? (
         <EmptyState
           title="Sampah kosong"

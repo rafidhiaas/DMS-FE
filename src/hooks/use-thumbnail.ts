@@ -12,7 +12,7 @@ export const thumbnailKeys = {
 export function useThumbnail(doc: Pick<DocumentItem, "id" | "extension" | "current_version">) {
   return useQuery({
     queryKey: thumbnailKeys.doc(doc.id, doc.current_version),
-    queryFn: () => fetchThumbnail(doc.id, doc.extension),
+    queryFn: () => fetchThumbnail(doc.id, doc.extension, doc.current_version),
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
   });

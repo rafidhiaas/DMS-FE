@@ -96,7 +96,7 @@ import { useCustomFields } from "@/hooks/use-custom-fields";
 import { formatCustomValue } from "@/lib/api/custom-fields";
 import { ShareDialog } from "@/components/shares/share-dialog";
 import { ShareLinkPopover } from "@/components/shares/share-link-popover";
-import { isExpired } from "@/lib/mocks/share-link-store";
+import { isExpired } from "@/lib/domain";
 import { recordRecentDocument } from "@/lib/recent-docs";
 import { PageHeader } from "@/components/page-header";
 
@@ -668,14 +668,6 @@ function NotesTab({
     });
   }
 
-  if (notes.data === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Catatan dokumen belum tersedia — backend belum menyediakan endpoint catatan.
-      </p>
-    );
-  }
-
   const list = notes.data ?? [];
 
   return (
@@ -762,13 +754,6 @@ function HistoryTab({ documentId }: { documentId: string }) {
   }
   if (history.isError) {
     return <p className="text-sm text-destructive">Gagal memuat riwayat dokumen.</p>;
-  }
-  if (history.data === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Riwayat per dokumen belum tersedia — backend belum mengaitkan audit log dengan dokumen.
-      </p>
-    );
   }
   const logs = history.data ?? [];
   if (logs.length === 0) {

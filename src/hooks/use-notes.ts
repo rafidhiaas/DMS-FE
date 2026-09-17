@@ -7,7 +7,7 @@ export const noteKeys = {
   forDocument: (documentId: string) => ["document-notes", documentId] as const,
 };
 
-/** Catatan satu dokumen; `null` berarti backend belum mendukung. */
+/** Catatan satu dokumen. */
 export function useNotes(documentId: string, enabled = true) {
   return useQuery({
     queryKey: noteKeys.forDocument(documentId),

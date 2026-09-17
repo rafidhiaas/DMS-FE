@@ -1,6 +1,4 @@
-import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { mockMetaStore } from "@/lib/mocks/meta-store";
 import type { MetaItem, MetaKind } from "@/types";
 import { unwrap } from "@/lib/api/_transform";
 
@@ -35,13 +33,11 @@ function mapMeta(m: BeMetaItem): MetaItem {
 }
 
 export async function fetchMeta(kind: MetaKind): Promise<MetaItem[]> {
-  if (env.USE_MOCKS) return mockMetaStore.list(kind);
   const { data } = await api.get<unknown>(PATH[kind]);
   return (unwrap<BeMetaItem[]>(data) ?? []).map(mapMeta);
 }
 
 export async function createMeta(kind: MetaKind, input: { name: string; color?: string }): Promise<MetaItem> {
-  if (env.USE_MOCKS) return mockMetaStore.create(kind, input);
   const { data } = await api.post<unknown>(PATH[kind], input);
   return mapMeta(unwrap<BeMetaItem>(data));
 }
@@ -51,12 +47,10 @@ export async function updateMeta(
   id: string,
   patch: { name?: string; color?: string },
 ): Promise<MetaItem> {
-  if (env.USE_MOCKS) return mockMetaStore.update(kind, id, patch);
   const { data } = await api.patch<unknown>(`${PATH[kind]}/${id}`, patch);
   return mapMeta(unwrap<BeMetaItem>(data));
 }
 
 export async function deleteMeta(kind: MetaKind, id: string): Promise<void> {
-  if (env.USE_MOCKS) return mockMetaStore.remove(kind, id);
   await api.delete(`${PATH[kind]}/${id}`);
 }

@@ -19,12 +19,7 @@ export default async function AuditPage() {
       <PageHeader
         eyebrow="Kepatuhan"
         title="Audit Log"
-        description={
-          <>
-            Jejak aktivitas pengguna untuk kebutuhan kepatuhan.
-            {user.role === "COMPANY_ADMIN" && " Peran Anda hanya melihat aktivitas Anda sendiri."}
-          </>
-        }
+        description="Jejak aktivitas pengguna untuk kebutuhan kepatuhan."
       />
       <AuditLogTable role={user.role} />
     </div>

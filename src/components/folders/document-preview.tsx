@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, FileWarning } from "lucide-react";
 import { useDocumentFile } from "@/hooks/use-document-file";
 import { previewKindFor } from "@/lib/api/files";
-import { env } from "@/lib/env";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,22 +13,25 @@ import { FileIcon } from "@/components/folders/file-icon";
 /**
  * Panel pratinjau dokumen (sisi kanan detail & halaman publik).
  * PDF → iframe, gambar → img, teks/CSV → pre. Tipe lain hanya info + tombol buka.
- * Tanpa berkas tersimpan (data contoh / mode backend) → teks fallback yang jujur.
+ * Berkas tidak bisa diambil (hilang di storage / tanpa akses) → teks fallback yang jujur.
  */
 export function DocumentPreview({
   documentId,
   extension,
   title,
   versionNumber,
+  shareToken,
   className,
 }: {
   documentId: string;
   extension: string;
   title: string;
   versionNumber?: number;
+  /** Halaman publik /share/[token]: berkas diambil lewat tautan, tanpa login. */
+  shareToken?: string;
   className?: string;
 }) {
-  const file = useDocumentFile(documentId, versionNumber);
+  const file = useDocumentFile(documentId, versionNumber, true, shareToken);
   const kind = previewKindFor(extension, file.data?.type);
 
   const text = useQuery({
@@ -45,19 +47,8 @@ export function DocumentPreview({
   if (!file.data || !file.url) {
     return (
       <Fallback extension={extension} className={className}>
-        {env.USE_MOCKS ? (
-          <>
-            <p className="text-sm">Berkas asli belum tersimpan untuk dokumen ini.</p>
-            <p className="text-xs">
-              Data contoh tidak menyertakan berkas. Unggah versi baru untuk melihat pratinjau.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm">Pratinjau berkas belum tersedia.</p>
-            <p className="text-xs">Menunggu integrasi Object Storage (S3) di backend.</p>
-          </>
-        )}
+        <p className="text-sm">Berkas tidak dapat dimuat.</p>
+        <p className="text-xs">Berkas tidak ditemukan di server atau Anda tidak memiliki akses.</p>
       </Fallback>
     );
   }

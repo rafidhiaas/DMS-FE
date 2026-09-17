@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Building2, FileType, ListChecks, Loader2, Pencil, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 import { CustomFieldsManager } from "@/components/metadata/custom-fields-manager";
 import { useMeta, useCreateMeta, useUpdateMeta, useDeleteMeta } from "@/hooks/use-meta";
-import { META_LABEL, TAG_COLORS } from "@/lib/mocks/meta-store";
+import { META_LABEL, TAG_COLORS } from "@/lib/domain";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MetaItem, MetaKind } from "@/types";

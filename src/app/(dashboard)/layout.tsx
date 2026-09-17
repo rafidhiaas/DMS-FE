@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/session";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
-import { MockActor } from "@/components/providers/mock-actor";
 import { GlobalSearch } from "@/components/global-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
@@ -21,8 +20,6 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-1">
-      {/* Teruskan identitas user login ke mock store (audit/share) di sisi client. */}
-      <MockActor user={user} />
       <KeyboardShortcuts role={user.role} />
       <AppSidebar user={sidebarUser} />
 

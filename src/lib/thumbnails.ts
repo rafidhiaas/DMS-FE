@@ -1,13 +1,11 @@
-import { env } from "@/lib/env";
-import { getFile, getThumb, putThumb } from "@/lib/mocks/file-store";
-import { findVersionId } from "@/lib/mocks/dms-store";
-import { getContent } from "@/lib/mocks/content-store";
+import { fetchDocumentFile } from "@/lib/api/files";
+import { getThumb, putThumb } from "@/lib/thumb-cache";
 
 /**
  * Thumbnail dokumen untuk kartu daftar (pola kartu Paperless-ngx).
- * MOCK: dirender di browser dari berkas di IndexedDB — halaman pertama PDF (pdf.js),
- * gambar diperkecil, berkas teks ditampilkan sebagai cuplikan. Hasil render di-cache.
- * BACKEND: menunggu thumbnail yang dibuat server (usulan `GET /documents/:id/thumbnail`).
+ * Dirender di browser dari berkas asli backend — halaman pertama PDF (pdf.js), gambar
+ * diperkecil, berkas teks ditampilkan sebagai cuplikan. Hasil render di-cache di IndexedDB
+ * per (dokumen, versi) sehingga berkas hanya diunduh sekali.
  */
 
 export type Thumbnail =
@@ -72,38 +70,42 @@ async function renderImage(blob: Blob): Promise<string | null> {
   }
 }
 
+const RENDERABLE = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "txt", "csv", "md", "json", "log"];
+const TEXT_PREFIX = "text:";
+
 /** Thumbnail untuk versi terkini sebuah dokumen. */
-export async function fetchThumbnail(documentId: string, extension: string): Promise<Thumbnail> {
-  if (!env.USE_MOCKS || typeof window === "undefined") return { kind: "none" };
+export async function fetchThumbnail(
+  documentId: string,
+  extension: string,
+  currentVersion = 1,
+): Promise<Thumbnail> {
+  const ext = extension.toLowerCase();
+  if (typeof window === "undefined" || !RENDERABLE.includes(ext)) return { kind: "none" };
 
-  // Berkas teks: cuplikan dari indeks konten (tanpa render gambar).
-  const text = getContent(documentId);
-  if (text) return { kind: "text", text: text.slice(0, TEXT_CHARS) };
+  const key = `${documentId}:v${currentVersion}`;
+  const cached = await getThumb(key);
+  if (cached) {
+    return cached.startsWith(TEXT_PREFIX)
+      ? { kind: "text", text: cached.slice(TEXT_PREFIX.length) }
+      : { kind: "image", src: cached };
+  }
 
-  const versionId = findVersionId(documentId);
-  if (!versionId) return { kind: "none" };
-
-  const cached = await getThumb(versionId);
-  if (cached) return { kind: "image", src: cached };
-
-  const file = await getFile(versionId);
+  const file = await fetchDocumentFile({ documentId });
   if (!file) return { kind: "none" };
 
-  const ext = extension.toLowerCase();
-  // Berkas teks yang diunggah sebelum indeks konten ada: baca langsung dari berkasnya.
-  if (["txt", "csv", "md", "json", "log"].includes(ext) || file.type.startsWith("text/")) {
+  if (["txt", "csv", "md", "json", "log"].includes(ext)) {
     try {
       const raw = (await file.blob.text()).slice(0, TEXT_CHARS);
-      if (raw.trim()) return { kind: "text", text: raw };
+      if (!raw.trim()) return { kind: "none" };
+      await putThumb(key, TEXT_PREFIX + raw);
+      return { kind: "text", text: raw };
     } catch {
-      /* lanjut ke placeholder */
+      return { kind: "none" };
     }
   }
-  let url: string | null = null;
-  if (ext === "pdf" || file.type === "application/pdf") url = await renderPdf(file.blob);
-  else if (file.type.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) url = await renderImage(file.blob);
 
+  const url = ext === "pdf" ? await renderPdf(file.blob) : await renderImage(file.blob);
   if (!url) return { kind: "none" };
-  await putThumb(versionId, url);
+  await putThumb(key, url);
   return { kind: "image", src: url };
 }

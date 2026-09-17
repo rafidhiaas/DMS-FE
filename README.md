@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Secure DMS — Frontend
 
-## Getting Started
+Next.js 16 (App Router) + React 19 + Tailwind v4 + shadcn/ui (Base UI) + TanStack Query.
+Frontend **tidak punya data mock** — semua data berasal dari backend Express
+([DMS-BE](https://github.com/rafidhiaas/DMS-BE)) lewat pola **BFF**.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Browser ──► Next.js /api/bff/*  ──►  Express /api/*  ──►  PostgreSQL
+            (cookie HttpOnly,        (JWT Bearer)
+             auto-refresh token)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Token tidak pernah menyentuh JavaScript browser: login menyimpan `dms_access` / `dms_refresh`
+sebagai cookie HttpOnly, dan `/api/bff/[...path]` menyuntikkan `Authorization: Bearer` ke Express
+(termasuk unggah multipart dan unduh berkas biner).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Menjalankan
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Butuh backend + PostgreSQL aktif (lihat README DMS-BE).
 
-## Learn More
+```bash
+cp .env.example .env.local     # BACKEND_API_URL=http://localhost:5000
+npm install
+npm run dev                    # http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+> Windows PowerShell dengan ExecutionPolicy default: pakai `npm.cmd run dev`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Akun demo (dibuat `npm run seed` di backend, password `Password123!`):
+`super@dms.test`, `admin@dms.test`, `auditor@dms.test`, `karyawan@dms.test`.
+Saat development, halaman login menampilkan daftar ini — klik untuk mengisi form.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Struktur data layer
 
-## Deploy on Vercel
+| Lokasi | Isi |
+|---|---|
+| `src/app/api/auth/*` | login / logout / register / me — mengelola cookie sesi |
+| `src/app/api/bff/[...path]` | proxy universal ke Express + refresh token otomatis |
+| `src/lib/api/_transform.ts` | adapter respons BE (camelCase, `{success,data}`) → tipe FE (snake_case) |
+| `src/lib/api/*.ts` | satu file per modul: documents, folders, shares, share-links, notes, meta, custom-fields, workflows, search, stats, users, activity-logs, files |
+| `src/hooks/use-*.ts` | hook TanStack Query di atas `lib/api` |
+| `src/lib/domain.ts` | konstanta domain (retensi Sampah, palet tag, `DuplicateDocumentError`) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Yang sengaja tetap di browser (preferensi per-perangkat, bukan data bisnis): tema, mode tampilan
+folder, sidebar ramping, tampilan tersimpan, “terakhir dibuka”, dan cache thumbnail (IndexedDB).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Pemeriksaan
+
+```bash
+npx tsc --noEmit
+npm run lint
+```
+
+Jangan jalankan `next build` saat `next dev` masih hidup — keduanya berbagi `.next` dan cache dev rusak
+(semua rute 404). Bila terjadi: hentikan dev server, hapus `.next`, jalankan ulang.

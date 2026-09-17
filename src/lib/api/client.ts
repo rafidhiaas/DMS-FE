@@ -27,13 +27,20 @@ api.interceptors.response.use(
     // Normalisasi: teruskan pesan asli backend ({ message }) sebagai Error biasa,
     // sehingga `e.message` di onError hooks/komponen selalu ramah pengguna —
     // bukan "Request failed with status code 400" bawaan Axios.
+    // code + data ikut dibawa untuk error yang perlu ditangani khusus (mis. DUPLICATE_DOCUMENT).
+    const body = error.response?.data as { code?: string; data?: unknown } | undefined;
     return Promise.reject(
       Object.assign(new Error(getApiErrorMessage(error)), {
         status: error.response?.status,
+        code: body?.code,
+        data: body?.data,
       }),
     );
   },
 );
+
+/** Error hasil normalisasi interceptor di atas. */
+export type ApiError = Error & { status?: number; code?: string; data?: unknown };
 
 /** Ekstrak pesan error yang ramah dari error Axios maupun Error biasa. */
 export function getApiErrorMessage(error: unknown, fallback = "Terjadi kesalahan."): string {

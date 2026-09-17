@@ -1,46 +1,82 @@
-import { env } from "@/lib/env";
 import { api } from "@/lib/api/client";
-import { mockShareLinkStore } from "@/lib/mocks/share-link-store";
-import type { PublicShareView, ShareLink, ShareLinkAccess } from "@/types";
+import type { DocumentStatus, PublicShareView, ShareLink, ShareLinkAccess } from "@/types";
+import { unwrap } from "@/lib/api/_transform";
 
 /**
- * Lapisan akses data Tautan Publik (ShareLink).
- * Backend Express BELUM punya endpoint ini (lihat backend-gaps). Path di bawah
- * mengikuti pola /api/shares yang ada, agar tinggal disambungkan nanti.
+ * Tautan publik (ShareLink) → backend `/api/shares/.../links` + `/api/public/share/:token`.
+ * Endpoint publik tetap lewat BFF: tanpa cookie sesi, BFF meneruskan tanpa Authorization.
  */
 
-const NOT_READY = "Tautan publik menunggu endpoint ShareLink di backend.";
+interface BeShareLink {
+  id: string;
+  documentId: string;
+  token: string;
+  access: ShareLinkAccess;
+  expiresAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  accessCount: number;
+}
+
+function mapLink(l: BeShareLink): ShareLink {
+  return {
+    id: l.id,
+    document_id: l.documentId,
+    token: l.token,
+    access: l.access,
+    expires_at: l.expiresAt ?? null,
+    created_by: l.createdBy,
+    created_at: l.createdAt,
+    access_count: l.accessCount ?? 0,
+  };
+}
 
 export async function fetchShareLinks(documentId: string): Promise<ShareLink[]> {
-  if (env.USE_MOCKS) return mockShareLinkStore.listForDocument(documentId);
-  const { data } = await api.get<{ links: ShareLink[] }>(
-    `/shares/documents/${documentId}/links`,
-  );
-  return data.links;
+  const { data } = await api.get<unknown>(`/shares/documents/${documentId}/links`);
+  return (unwrap<BeShareLink[]>(data) ?? []).map(mapLink);
 }
 
 export async function createShareLink(
   documentId: string,
   input: { access: ShareLinkAccess; expires_in_days: number | null },
 ): Promise<ShareLink> {
-  if (env.USE_MOCKS) return mockShareLinkStore.create(documentId, input);
-  const { data } = await api.post<{ link: ShareLink }>(
-    `/shares/documents/${documentId}/links`,
-    input,
-  );
-  return data.link;
+  const { data } = await api.post<unknown>(`/shares/documents/${documentId}/links`, input);
+  return mapLink(unwrap<BeShareLink>(data));
 }
 
 export async function revokeShareLink(linkId: string): Promise<void> {
-  if (env.USE_MOCKS) return mockShareLinkStore.revoke(linkId);
   await api.delete(`/shares/links/${linkId}`);
 }
 
 /** Dipakai halaman publik — tanpa sesi login. */
 export async function resolveShareLink(token: string): Promise<PublicShareView> {
-  if (env.USE_MOCKS) return mockShareLinkStore.resolve(token);
-  // Endpoint publik nantinya tidak lewat BFF ber-token; sementara tolak dengan pesan jelas.
-  throw new Error(NOT_READY);
+  const { data } = await api.get<unknown>(`/public/share/${encodeURIComponent(token)}`);
+  const payload = unwrap<{
+    link: BeShareLink;
+    document: {
+      id: string;
+      title: string;
+      extension: string;
+      status: DocumentStatus;
+      currentVersion: number;
+      updatedAt: string;
+      sizeBytes: string | number;
+      folderName: string;
+    };
+  }>(data);
+  return {
+    link: mapLink(payload.link),
+    document: {
+      id: payload.document.id,
+      title: payload.document.title,
+      extension: payload.document.extension,
+      status: payload.document.status,
+      current_version: payload.document.currentVersion,
+      updated_at: payload.document.updatedAt,
+      size_bytes: String(payload.document.sizeBytes ?? "0"),
+      folder_name: payload.document.folderName,
+    },
+  };
 }
 
 /** URL absolut tautan publik untuk disalin ke clipboard. */

@@ -1,7 +1,4 @@
-import { env } from "@/lib/env";
-import { recordActivity } from "@/lib/mocks/audit-store";
-import { getFile } from "@/lib/mocks/file-store";
-import { findVersionId } from "@/lib/mocks/dms-store";
+import { fetchDocumentFile } from "@/lib/api/files";
 
 /** Picu unduhan file di browser dari konten string/blob. */
 export function triggerBrowserDownload(content: string | Blob, filename: string): void {
@@ -16,13 +13,9 @@ export function triggerBrowserDownload(content: string | Blob, filename: string)
   URL.revokeObjectURL(url);
 }
 
-export type DownloadResult = "file" | "placeholder";
-
 /**
- * Unduh dokumen DMS.
- * MOCK: bila berkas asli tersimpan di IndexedDB (diunggah di browser ini) → unduh berkas itu;
- * jika tidak (data contoh) → berkas placeholder agar alur (termasuk audit log) tetap teruji.
- * Saat S3 siap: ganti isi fungsi ini dengan request presigned URL via BFF.
+ * Unduh berkas asli dokumen dari backend (lewat BFF — token tidak pernah menyentuh JS).
+ * Backend mencatat DOWNLOAD_DOCUMENT di audit log dan menolak (403) bila akses hanya VIEWER.
  */
 export async function downloadDocument(doc: {
   id: string;
@@ -31,41 +24,29 @@ export async function downloadDocument(doc: {
   current_version: number;
   /** Unduh versi tertentu (default: versi terkini). */
   version_number?: number;
+  /** Unduh lewat tautan publik (halaman /share/[token]). */
+  share_token?: string;
 }): Promise<DownloadResult> {
-  if (!env.USE_MOCKS) {
-    throw new Error("Unduhan berkas asli menunggu integrasi S3 di backend.");
-  }
   const version = doc.version_number ?? doc.current_version;
-  const versionId = findVersionId(doc.id, version);
-  const stored = versionId ? await getFile(versionId) : null;
-
-  if (stored) {
-    const suffix = version === doc.current_version ? "" : ` (v${version})`;
-    triggerBrowserDownload(stored.blob, `${doc.title}${suffix}.${doc.extension}`);
-    recordActivity("DOWNLOAD_DOCUMENT", `Mengunduh dokumen "${doc.title}" (v${version})`, {
-      document_id: doc.id,
-    });
-    return "file";
-  }
-
-  const placeholder = [
-    "=== SECURE DMS — BERKAS SIMULASI ===",
-    "",
-    `Judul     : ${doc.title}`,
-    `Versi     : ${version}`,
-    `Ekstensi  : ${doc.extension}`,
-    `Dokumen ID: ${doc.id}`,
-    "",
-    "Berkas asli tidak tersimpan (data contoh). Unggah versi baru untuk mendapatkan berkas sungguhan.",
-  ].join("\n");
-  triggerBrowserDownload(placeholder, `${doc.title}.${doc.extension}.txt`);
-  recordActivity("DOWNLOAD_DOCUMENT", `Mengunduh dokumen "${doc.title}" (v${version})`, {
-    document_id: doc.id,
+  const file = await fetchDocumentFile({
+    documentId: doc.id,
+    versionNumber: doc.share_token ? undefined : version,
+    shareToken: doc.share_token,
+    download: true,
   });
-  return "placeholder";
+  if (!file) throw new Error("Berkas tidak ditemukan di server.");
+
+  const suffix = version === doc.current_version ? "" : ` (v${version})`;
+  const fallback = `${doc.title}${suffix}.${doc.extension}`;
+  triggerBrowserDownload(file.blob, file.name !== "berkas" ? file.name : fallback);
+  return "file";
 }
 
-/** Pesan toast sesuai hasil unduhan. */
+export type DownloadResult = "file";
+
+/** Pesan toast setelah unduhan berhasil. */
+const DOWNLOAD_MESSAGES: Record<DownloadResult, string> = { file: "Berkas diunduh." };
+
 export function downloadToast(result: DownloadResult): string {
-  return result === "file" ? "Berkas diunduh." : "Berkas simulasi diunduh (data contoh tanpa berkas asli).";
+  return DOWNLOAD_MESSAGES[result];
 }

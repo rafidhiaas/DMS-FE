@@ -90,6 +90,7 @@ export const AUDIT_ACTIONS = [
   "LOGIN",
   "LOGIN_FAILED",
   "LOGOUT",
+  "REGISTER",
   "CREATE_FOLDER",
   "RENAME_FOLDER",
   "MOVE_FOLDER",
@@ -99,15 +100,15 @@ export const AUDIT_ACTIONS = [
   "UPLOAD_VERSION",
   "DELETE_DOCUMENT",
   "DOWNLOAD_DOCUMENT",
+  "VIEW_DOCUMENT",
   "SHARE_DOCUMENT",
   "UPDATE_SHARE_ACCESS",
   "REVOKE_SHARE",
-  // Tautan publik — action pilihan FE, belum ada di backend (lihat backend-gaps).
+  // Tautan publik
   "CREATE_SHARE_LINK",
   "REVOKE_SHARE_LINK",
   "ACCESS_SHARE_LINK",
-  // Sampah, pindah dokumen, catatan — FE mock (backend belum mendukung).
-  "TRASH_DOCUMENT",
+  // Sampah (DELETE_DOCUMENT = masuk Sampah / hapus permanen), pindah dokumen, catatan
   "RESTORE_DOCUMENT",
   "MOVE_DOCUMENT",
   "ADD_NOTE",
@@ -118,15 +119,14 @@ export const AUDIT_ACTIONS = [
   "DELETE_META",
   "SUBMIT_REVIEW",
   "WITHDRAW_REVIEW",
-  "APPROVE_DOCUMENT",
-  "REJECT_DOCUMENT",
-  "ARCHIVE_DOCUMENT",
-  "UNARCHIVE_DOCUMENT",
-  "CREATE_USER",
+  // Nama aksi mengikuti backend (lib/workflow.ts)
+  "APPROVE",
+  "REJECT",
+  "ARCHIVE",
+  "UNARCHIVE",
   "UPDATE_USER",
-  "DEACTIVATE_USER",
-  "ACTIVATE_USER",
   "DELETE_USER",
+  "RESET_PASSWORD",
   "WORKFLOW_APPLIED",
   "UPDATE_WORKFLOW",
 ] as const;
@@ -137,6 +137,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   LOGIN: "Login",
   LOGIN_FAILED: "Login Gagal",
   LOGOUT: "Logout",
+  REGISTER: "Registrasi",
   CREATE_FOLDER: "Buat Folder",
   RENAME_FOLDER: "Ganti Nama Folder",
   MOVE_FOLDER: "Pindah Folder",
@@ -146,13 +147,13 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   UPLOAD_VERSION: "Unggah Versi",
   DELETE_DOCUMENT: "Hapus Dokumen",
   DOWNLOAD_DOCUMENT: "Unduh Dokumen",
+  VIEW_DOCUMENT: "Lihat Dokumen",
   SHARE_DOCUMENT: "Bagikan Dokumen",
   UPDATE_SHARE_ACCESS: "Ubah Akses",
   REVOKE_SHARE: "Cabut Akses",
   CREATE_SHARE_LINK: "Buat Tautan Publik",
   REVOKE_SHARE_LINK: "Cabut Tautan Publik",
   ACCESS_SHARE_LINK: "Akses via Tautan",
-  TRASH_DOCUMENT: "Ke Sampah",
   RESTORE_DOCUMENT: "Pulihkan Dokumen",
   MOVE_DOCUMENT: "Pindah Dokumen",
   ADD_NOTE: "Tambah Catatan",
@@ -163,15 +164,13 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   DELETE_META: "Hapus Metadata Master",
   SUBMIT_REVIEW: "Ajukan Review",
   WITHDRAW_REVIEW: "Tarik Pengajuan",
-  APPROVE_DOCUMENT: "Setujui Dokumen",
-  REJECT_DOCUMENT: "Tolak Dokumen",
-  ARCHIVE_DOCUMENT: "Arsipkan Dokumen",
-  UNARCHIVE_DOCUMENT: "Buka Arsip",
-  CREATE_USER: "Tambah Pengguna",
-  UPDATE_USER: "Ubah Pengguna",
-  DEACTIVATE_USER: "Nonaktifkan Pengguna",
-  ACTIVATE_USER: "Aktifkan Pengguna",
-  DELETE_USER: "Hapus Pengguna",
+  APPROVE: "Setujui Dokumen",
+  REJECT: "Tolak Dokumen",
+  ARCHIVE: "Arsipkan Dokumen",
+  UNARCHIVE: "Buka Arsip",
+  UPDATE_USER: "Tambah / Ubah Pengguna",
+  DELETE_USER: "Nonaktifkan Pengguna",
+  RESET_PASSWORD: "Reset Kata Sandi",
   WORKFLOW_APPLIED: "Otomatisasi Berjalan",
   UPDATE_WORKFLOW: "Ubah Otomatisasi",
 };
@@ -186,20 +185,16 @@ export function actionMeta(action: string): { label: string; className: string }
     action === "REVOKE_SHARE_LINK" ||
     action === "DELETE_NOTE" ||
     action === "DELETE_META" ||
-    action === "REJECT_DOCUMENT" ||
+    action === "REJECT" ||
     action === "DELETE_USER" ||
-    action === "DEACTIVATE_USER" ||
     action === "LOGIN_FAILED"
   ) {
     return { label, className: "border-destructive/50 text-destructive" };
   }
-  if (action === "APPROVE_DOCUMENT") {
+  if (action === "APPROVE") {
     return { label, className: "border-ok/60 text-ok" };
   }
   if (action === "SUBMIT_REVIEW") {
-    return { label, className: "border-warn/60 text-warn" };
-  }
-  if (action === "TRASH_DOCUMENT") {
     return { label, className: "border-warn/60 text-warn" };
   }
   if (action === "RESTORE_DOCUMENT" || action === "ADD_NOTE") {

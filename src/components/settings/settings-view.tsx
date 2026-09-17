@@ -9,7 +9,7 @@ import { useSavedViews, savedViewHref } from "@/lib/saved-views";
 import { VIEW_MODES, type ViewMode } from "@/lib/list-filters";
 import { ROLE_LABELS } from "@/lib/constants";
 import { ROLE_BADGE_CLASS } from "@/lib/format";
-import { env } from "@/lib/env";
+import { clearThumbs } from "@/lib/thumb-cache";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,7 @@ function useMounted(): boolean {
   );
 }
 
-/** Halaman Pengaturan: profil, tampilan, tampilan tersimpan, data lokal (mock), pintasan. */
+/** Halaman Pengaturan: profil, tampilan, tampilan tersimpan, data lokal browser, pintasan. */
 export function SettingsView({ user }: { user: AuthUser }) {
   const mounted = useMounted();
   return (
@@ -44,7 +44,7 @@ export function SettingsView({ user }: { user: AuthUser }) {
       <ProfileSection user={user} />
       {mounted && <AppearanceSection />}
       <SavedViewsSection />
-      {env.USE_MOCKS && <LocalDataSection />}
+      <LocalDataSection />
       <ShortcutsSection />
     </div>
   );
@@ -228,19 +228,8 @@ function SavedViewsSection() {
   );
 }
 
-const MOCK_KEYS = [
-  "dms_mock_data_v1",
-  "dms_mock_audit_v1",
-  "dms_mock_shares_v1",
-  "dms_mock_share_links_v1",
-  "dms_mock_notes_v1",
-  "dms_mock_meta_v1",
-  "dms_mock_users_v1",
-  "dms_mock_workflows_v1",
-  "dms_mock_content_v1",
-  "dms_saved_views_v1",
-  "dms_recent_docs_v1",
-];
+/** Data yang memang hanya hidup di browser ini (bukan di server). */
+const LOCAL_KEYS = ["dms_saved_views_v1", "dms_recent_docs_v1"];
 
 function LocalDataSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -249,14 +238,9 @@ function LocalDataSection() {
   async function reset() {
     setBusy(true);
     try {
-      for (const k of MOCK_KEYS) window.localStorage.removeItem(k);
-      await new Promise<void>((resolve) => {
-        const req = indexedDB.deleteDatabase("dms_mock_files");
-        req.onsuccess = () => resolve();
-        req.onerror = () => resolve();
-        req.onblocked = () => resolve();
-      });
-      toast.success("Data contoh direset. Memuat ulang…");
+      for (const k of LOCAL_KEYS) window.localStorage.removeItem(k);
+      await clearThumbs();
+      toast.success("Data lokal dibersihkan. Memuat ulang…");
       setTimeout(() => window.location.assign("/dashboard"), 600);
     } finally {
       setBusy(false);
@@ -266,29 +250,28 @@ function LocalDataSection() {
 
   return (
     <section>
-      <SectionHeader title="Data contoh (mode mock)" />
+      <SectionHeader title="Data lokal browser" />
       <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
         <p className="max-w-prose text-sm text-muted-foreground">
-          Semua folder, dokumen, berkas, audit, share, catatan, dan metadata di mode demo tersimpan di browser ini.
-          Reset mengembalikan data awal.
+          Tampilan tersimpan, daftar “terakhir dibuka”, dan cache thumbnail hanya disimpan di browser ini.
+          Dokumen, folder, dan metadata tersimpan di server dan tidak terpengaruh.
         </p>
         <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={busy}>
           <RotateCcw className="size-4" />
-          Reset data contoh
+          Bersihkan data lokal
         </Button>
       </div>
       <DeleteConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Reset data contoh?"
-        description="Semua perubahan di mode demo (dokumen, berkas yang diunggah, catatan, tampilan tersimpan) di browser ini akan hilang."
+        title="Bersihkan data lokal?"
+        description="Tampilan tersimpan, riwayat terakhir dibuka, dan cache thumbnail di browser ini akan dihapus. Data di server tetap aman."
         onConfirm={reset}
         pending={busy}
       />
     </section>
   );
 }
-
 function ShortcutsSection() {
   return (
     <section>

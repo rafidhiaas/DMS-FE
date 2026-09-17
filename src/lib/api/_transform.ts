@@ -34,6 +34,8 @@ export interface BeVersion {
   mimeType?: string | null;
   uploadedBy: string;
   changelog?: string | null;
+  checksum?: string | null;
+  originalName?: string | null;
   createdAt?: string;
 }
 
@@ -77,7 +79,8 @@ export interface BeDocument {
   documentTypeId?: string | null;
   correspondentId?: string | null;
   documentDate?: string | null;
-  asn?: number | null;
+  /** Kolom string unik di BE; FE memakainya sebagai angka. */
+  asn?: string | number | null;
   customFields?: Record<string, string | number | boolean | null>;
   documentTags?: { tag?: BeMetaRef | null }[];
   folder?: BeFolder | null;
@@ -86,7 +89,14 @@ export interface BeDocument {
   documentType?: BeMetaRef | null;
   correspondent?: BeMetaRef | null;
   shares?: BeShare[];
-  userAccess?: { isOwner: boolean; accessLevel: AccessLevel | null } | null;
+  userAccess?: {
+    isOwner: boolean;
+    accessLevel: AccessLevel | null;
+    canEdit?: boolean;
+    canDownload?: boolean;
+  } | null;
+  /** Nama aturan otomatisasi yang baru saja diterapkan (unggah / ubah status). */
+  appliedRules?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -136,6 +146,8 @@ export function mapVersion(v: BeVersion | null | undefined) {
     mime_type: v.mimeType ?? null,
     uploaded_by: v.uploadedBy,
     changelog: v.changelog ?? "",
+    checksum: v.checksum ?? null,
+    original_name: v.originalName ?? null,
     created_at: v.createdAt ?? "",
   };
 }
@@ -188,7 +200,7 @@ export function mapDocument(d: BeDocument | null | undefined) {
     document_type_id: d.documentTypeId ?? null,
     correspondent_id: d.correspondentId ?? null,
     document_date: d.documentDate ?? null,
-    asn: d.asn ?? null,
+    asn: d.asn != null && d.asn !== "" && !Number.isNaN(Number(d.asn)) ? Number(d.asn) : null,
     custom_fields: d.customFields ?? {},
     tag_ids: tags.map((t) => t.id),
     tags: tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
@@ -206,8 +218,11 @@ export function mapDocument(d: BeDocument | null | undefined) {
       ? {
           is_owner: d.userAccess.isOwner,
           access_level: d.userAccess.accessLevel,
+          can_edit: d.userAccess.canEdit ?? d.userAccess.isOwner,
+          can_download: d.userAccess.canDownload ?? true,
         }
       : undefined,
+    applied_rules: d.appliedRules ?? [],
 
     // Timestamps
     created_at: d.createdAt ?? "",

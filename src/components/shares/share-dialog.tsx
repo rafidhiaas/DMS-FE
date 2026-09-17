@@ -9,7 +9,7 @@ import {
   useUpdateShareAccess,
   useRevokeShare,
 } from "@/hooks/use-shares";
-import { useUsers } from "@/hooks/use-users";
+import { useUserSearch } from "@/hooks/use-users";
 import { ACCESS_LEVEL_META, ROLE_BADGE_CLASS } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export function ShareDialog({
   const shareDocument = useShareDocument(documentId);
   const updateAccess = useUpdateShareAccess(documentId);
   const revokeShare = useRevokeShare(documentId);
-  const users = useUsers();
+  const users = useUserSearch("", open);
 
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [level, setLevel] = useState<AccessLevel>("VIEWER");
