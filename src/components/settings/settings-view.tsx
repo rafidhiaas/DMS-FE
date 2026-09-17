@@ -1,21 +1,25 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Bookmark, Keyboard, Monitor, Moon, PanelLeft, RotateCcw, Sun, Trash2, LayoutGrid, List } from "lucide-react";
+import { Bookmark, Keyboard, Loader2, Monitor, Moon, PanelLeft, RotateCcw, Sun, Trash2, LayoutGrid, List } from "lucide-react";
 import { useLocalPref } from "@/hooks/use-local-pref";
 import { useSavedViews, savedViewHref } from "@/lib/saved-views";
 import { VIEW_MODES, type ViewMode } from "@/lib/list-filters";
 import { ROLE_LABELS } from "@/lib/constants";
 import { ROLE_BADGE_CLASS } from "@/lib/format";
 import { clearThumbs } from "@/lib/thumb-cache";
+import { changePassword, updateProfile } from "@/lib/api/profile";
+import { getApiErrorMessage } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/page-header";
 import { DeleteConfirmDialog } from "@/components/folders/folder-dialogs";
 import Link from "next/link";
@@ -51,14 +55,57 @@ export function SettingsView({ user }: { user: AuthUser }) {
 }
 
 function ProfileSection({ user }: { user: AuthUser }) {
+  const router = useRouter();
+  const [name, setName] = useState(user.name);
+  const [savingName, setSavingName] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const nameDirty = name.trim() !== user.name && name.trim().length >= 2;
+  const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
+  const passwordValid =
+    currentPassword.length > 0 && newPassword.length >= 8 && confirmPassword === newPassword;
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nameDirty) return;
+    setSavingName(true);
+    try {
+      await updateProfile({ name: name.trim() });
+      toast.success("Nama diperbarui.");
+      // Cookie identitas sudah disegarkan BFF → muat ulang data server (sidebar, kop).
+      router.refresh();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Gagal memperbarui nama."));
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordValid) return;
+    setSavingPassword(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      toast.success("Kata sandi diubah. Perangkat lain harus login ulang.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Gagal mengubah kata sandi."));
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
   return (
     <section>
       <SectionHeader title="Profil" />
-      <dl className="grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-3">
-        <div>
-          <dt className="eyebrow">Nama</dt>
-          <dd className="mt-1 text-sm">{user.name}</dd>
-        </div>
+      <dl className="grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-2">
         <div>
           <dt className="eyebrow">Email</dt>
           <dd className="mt-1 font-mono text-[13px]">{user.email}</dd>
@@ -72,13 +119,71 @@ function ProfileSection({ user }: { user: AuthUser }) {
           </dd>
         </div>
       </dl>
-      <p className="pt-3 text-xs text-muted-foreground">
-        Ubah nama, email, dan kata sandi menunggu endpoint profil di backend.
-      </p>
+      <p className="pt-2 text-xs text-muted-foreground">Email dan peran hanya dapat diubah oleh administrator.</p>
+
+      <div className="grid gap-8 pt-6 lg:grid-cols-2">
+        <form onSubmit={saveName} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="profile-name">Nama</Label>
+            <Input
+              id="profile-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              maxLength={100}
+            />
+          </div>
+          <Button type="submit" variant="outline" disabled={!nameDirty || savingName}>
+            {savingName && <Loader2 className="size-4 animate-spin" />}
+            Simpan nama
+          </Button>
+        </form>
+
+        <form onSubmit={savePassword} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="profile-current-password">Kata sandi saat ini</Label>
+            <Input
+              id="profile-current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-new-password">Kata sandi baru</Label>
+              <Input
+                id="profile-new-password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Minimal 8 karakter"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="profile-confirm-password">Ulangi kata sandi baru</Label>
+              <Input
+                id="profile-confirm-password"
+                type="password"
+                autoComplete="new-password"
+                aria-invalid={passwordMismatch}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          {passwordMismatch && <p className="text-[13px] text-destructive">Kata sandi baru tidak sama.</p>}
+          <Button type="submit" variant="outline" disabled={!passwordValid || savingPassword}>
+            {savingPassword && <Loader2 className="size-4 animate-spin" />}
+            Ubah kata sandi
+          </Button>
+        </form>
+      </div>
     </section>
   );
 }
-
 function AppearanceSection() {
   const { theme, setTheme } = useTheme();
   const [viewMode, setViewMode] = useLocalPref<ViewMode>("dms_folder_view", "grid", VIEW_MODES);

@@ -18,6 +18,11 @@ sebagai cookie HttpOnly, dan `/api/bff/[...path]` menyuntikkan `Authorization: B
 
 Butuh backend + PostgreSQL aktif (lihat README DMS-BE).
 
+> **Versi backend:** frontend ini memakai endpoint yang (per 17 Sep 2026) baru ada di branch
+> [`feat/fe-integration` pada fork defrifegapratama002/DMS-BE](https://github.com/defrifegapratama002/DMS-BE/tree/feat/fe-integration)
+> — berkas/pratinjau, catatan, tautan publik, pencarian isi berkas, otomatisasi, bidang khusus, statistik, profil.
+> Dengan `main` upstream (rafidhiaas/DMS-BE) sebagian besar halaman akan gagal sampai branch itu di-merge.
+
 ```bash
 cp .env.example .env.local     # BACKEND_API_URL=http://localhost:5000
 npm install
@@ -37,7 +42,7 @@ Saat development, halaman login menampilkan daftar ini — klik untuk mengisi fo
 | `src/app/api/auth/*` | login / logout / register / me — mengelola cookie sesi |
 | `src/app/api/bff/[...path]` | proxy universal ke Express + refresh token otomatis |
 | `src/lib/api/_transform.ts` | adapter respons BE (camelCase, `{success,data}`) → tipe FE (snake_case) |
-| `src/lib/api/*.ts` | satu file per modul: documents, folders, shares, share-links, notes, meta, custom-fields, workflows, search, stats, users, activity-logs, files |
+| `src/lib/api/*.ts` | satu file per modul: profile, documents, folders, shares, share-links, notes, meta, custom-fields, workflows, search, stats, users, activity-logs, files |
 | `src/hooks/use-*.ts` | hook TanStack Query di atas `lib/api` |
 | `src/lib/domain.ts` | konstanta domain (retensi Sampah, palet tag, `DuplicateDocumentError`) |
 

@@ -34,6 +34,11 @@ export function applyAuthCookies(
   }
 }
 
+/** Perbarui cookie identitas saja (mis. setelah user mengubah namanya). */
+export function setUserCookie(res: NextResponse, user: AuthUser): void {
+  res.cookies.set(COOKIE.user, JSON.stringify(user), cookieOptions);
+}
+
 /** Hapus seluruh cookie sesi. */
 export function clearAuthCookies(res: NextResponse): void {
   for (const name of [COOKIE.access, COOKIE.refresh, COOKIE.user]) {

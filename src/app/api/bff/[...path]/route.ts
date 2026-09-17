@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { COOKIE } from "@/lib/constants";
-import { applyAuthCookies, clearAuthCookies } from "@/lib/auth/session";
+import { applyAuthCookies, clearAuthCookies, setUserCookie } from "@/lib/auth/session";
+import type { AuthUser } from "@/types";
 
 /**
  * Proxy universal Browser → Express (pola BFF).
@@ -17,6 +18,7 @@ async function handler(
   ctx: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await ctx.params;
+  const route = path.join("/");
   const search = req.nextUrl.search;
   const targetUrl = `${env.BACKEND_API_URL}/api/${path.join("/")}${search}`;
 
@@ -25,7 +27,19 @@ async function handler(
 
   // Body hanya untuk method yang punya payload.
   const hasBody = !["GET", "HEAD"].includes(req.method);
-  const body = hasBody ? await req.arrayBuffer() : undefined;
+  let body = hasBody ? await req.arrayBuffer() : undefined;
+
+  // Ganti kata sandi: backend mencabut semua sesi KECUALI refresh token yang dikirim.
+  // Cookie-nya HttpOnly (tak terbaca JS), jadi BFF yang menyisipkannya ke body.
+  if (route === "auth/change-password" && req.method === "POST" && body && refreshToken) {
+    try {
+      const json = JSON.parse(Buffer.from(body).toString("utf8")) as Record<string, unknown>;
+      const merged = Buffer.from(JSON.stringify({ ...json, refreshToken }), "utf8");
+      body = merged.buffer.slice(merged.byteOffset, merged.byteOffset + merged.byteLength) as ArrayBuffer;
+    } catch {
+      /* body bukan JSON → teruskan apa adanya, backend yang memvalidasi */
+    }
+  }
 
   const forward = (token?: string) =>
     fetch(targetUrl, {
@@ -84,6 +98,17 @@ async function handler(
 
   // Jika token dirotasi, perbarui cookie sesi.
   if (rotated) applyAuthCookies(res, rotated);
+
+  // Profil diubah → segarkan cookie identitas yang dibaca Server Components (nama di sidebar).
+  if (route === "auth/me" && req.method === "PATCH" && upstream.ok) {
+    try {
+      const json = JSON.parse(Buffer.from(payload).toString("utf8")) as { data?: AuthUser };
+      const u = json.data;
+      if (u?.id) setUserCookie(res, { id: u.id, email: u.email, name: u.name, role: u.role });
+    } catch {
+      /* respons tak terduga → biarkan cookie lama */
+    }
+  }
   return res;
 }
 

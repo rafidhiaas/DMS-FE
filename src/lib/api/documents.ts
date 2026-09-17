@@ -211,7 +211,7 @@ export function asDuplicateError(e: unknown): DuplicateDocumentError | null {
   return e instanceof DuplicateDocumentError ? e : null;
 }
 
-/** Teks terindeks sebuah dokumen (berkas teks; null untuk PDF/gambar — belum ada OCR). */
+/** Teks terindeks: berkas teks, PDF (lapisan teks), DOCX. null untuk gambar / PDF hasil scan — belum ada OCR. */
 export async function fetchDocumentContent(documentId: string): Promise<string | null> {
   const { data } = await api.get<unknown>(`/documents/${documentId}/content`);
   return unwrap<{ content?: string | null } | null>(data)?.content ?? null;

@@ -24,8 +24,8 @@ export function ContentTab({ documentId }: { documentId: string }) {
   if (!content.data) {
     return (
       <p className="text-sm text-muted-foreground">
-        Tidak ada teks terindeks. Konten hanya diekstrak dari berkas teks (txt, csv, md, json) yang diunggah di
-        browser ini; OCR untuk PDF/gambar menunggu layanan di server.
+        Tidak ada teks terindeks. Server mengekstrak teks dari berkas teks (txt, csv, md, json), PDF, dan DOCX saat
+        diunggah. Gambar dan PDF hasil scan (tanpa lapisan teks) belum didukung — perlu OCR.
       </p>
     );
   }
