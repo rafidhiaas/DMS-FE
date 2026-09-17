@@ -12,9 +12,9 @@ import type {
   DocumentListItem,
   DocumentStatus,
 } from "@/types";
-import { fetchAllFolders, fetchFolderContents } from "@/lib/api/folders";
 import { mockNotesStore } from "@/lib/mocks/notes-store";
-import { mapDocument, mapVersion, unwrap } from "@/lib/api/_transform";
+import { TRASH_RETENTION_DAYS } from "@/lib/mocks/dms-store";
+import { mapDocument, mapVersion, unwrap, type BeDocument, type BeVersion } from "@/lib/api/_transform";
 
 // ============ CREATE ============
 export async function createDocument(input: {
@@ -34,26 +34,26 @@ export async function createDocument(input: {
   formData.append("folderId", input.folder_id);
   if (input.description) formData.append("description", input.description);
 
-  const { data } = await api.post<any>("/documents", formData, {
+  const { data } = await api.post<unknown>("/documents", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-  const doc = unwrap<any>(data);
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 
 // ============ READ ============
 export async function fetchDocument(id: string): Promise<DocumentDetail> {
   if (env.USE_MOCKS) return mockStore.getDocument(id);
-  const { data } = await api.get<any>(`/documents/${id}`);
-  return mapDocument(unwrap<any>(data)) as DocumentDetail;
+  const { data } = await api.get<unknown>(`/documents/${id}`);
+  return mapDocument(unwrap<BeDocument>(data)) as DocumentDetail;
 }
 
 // ============ UPDATE / RENAME ============
 export async function renameDocument(id: string, title: string): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.renameDocument(id, title);
-  const { data } = await api.patch<any>(`/documents/${id}`, { title });
-  const doc = unwrap<any>(data);
+  const { data } = await api.patch<unknown>(`/documents/${id}`, { title });
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 
@@ -66,8 +66,8 @@ export async function deleteDocument(id: string): Promise<void> {
 // ============ VERSIONS ============
 export async function fetchVersionHistory(id: string): Promise<DocumentVersion[]> {
   if (env.USE_MOCKS) return (await mockStore.getDocument(id)).versions;
-  const { data } = await api.get<any>(`/documents/${id}/versions`);
-  const versions = unwrap<any[]>(data);
+  const { data } = await api.get<unknown>(`/documents/${id}/versions`);
+  const versions = unwrap<BeVersion[]>(data);
   return (versions ?? []).map(mapVersion) as DocumentVersion[];
 }
 
@@ -81,10 +81,10 @@ export async function uploadNewVersion(
   if (input.file) formData.append("file", input.file);
   if (input.changelog) formData.append("changelog", input.changelog);
 
-  const { data } = await api.post<any>(`/documents/${id}/versions`, formData, {
+  const { data } = await api.post<unknown>(`/documents/${id}/versions`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  const doc = unwrap<any>(data);
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 
@@ -92,12 +92,20 @@ export async function uploadNewVersion(
 export async function fetchTrash(): Promise<TrashItem[] | null> {
   if (env.USE_MOCKS) return mockStore.getTrash();
   try {
-    const { data } = await api.get<any>("/documents/trash");
-    const items = unwrap<any[]>(data) ?? [];
-    return items.map((d: any) => ({
-      ...mapDocument(d),
-      deleted_at: d.deletedAt,
-    })) as any;
+    const { data } = await api.get<unknown>("/documents/trash");
+    const items = unwrap<BeDocument[]>(data) ?? [];
+    return items.map((d) => {
+      // BE tidak mengirim jadwal pembersihan — hitung dari deletedAt seperti di mock.
+      const deletedAt = d.deletedAt ?? new Date().toISOString();
+      return {
+        ...mapDocument(d),
+        deleted_at: deletedAt,
+        folder_name: d.folder?.name ?? "—",
+        purge_at: new Date(
+          new Date(deletedAt).getTime() + TRASH_RETENTION_DAYS * 86_400_000,
+        ).toISOString(),
+      };
+    }) as TrashItem[];
   } catch {
     return null;
   }
@@ -116,16 +124,16 @@ export async function purgeDocument(id: string): Promise<void> {
 
 export async function emptyTrash(): Promise<number> {
   if (env.USE_MOCKS) return mockStore.emptyTrash();
-  const { data } = await api.delete<any>("/documents/trash");
-  const payload = unwrap<any>(data);
+  const { data } = await api.delete<unknown>("/documents/trash");
+  const payload = unwrap<{ count?: number } | null>(data);
   return payload?.count ?? 0;
 }
 
 // ============ MOVE ============
 export async function moveDocument(id: string, folder_id: string): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.moveDocument(id, folder_id);
-  const { data } = await api.patch<any>(`/documents/${id}`, { folderId: folder_id });
-  const doc = unwrap<any>(data);
+  const { data } = await api.patch<unknown>(`/documents/${id}`, { folderId: folder_id });
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 
@@ -136,7 +144,7 @@ export async function updateDocumentMeta(
 ): Promise<DocumentItem> {
   if (env.USE_MOCKS) return mockStore.updateDocumentMeta(id, patch);
 
-  const bePatch: any = {};
+  const bePatch: Record<string, unknown> = {};
   if (patch.tag_ids !== undefined) bePatch.tagIds = patch.tag_ids;
   if (patch.document_type_id !== undefined) bePatch.documentTypeId = patch.document_type_id;
   if (patch.correspondent_id !== undefined) bePatch.correspondentId = patch.correspondent_id;
@@ -144,16 +152,16 @@ export async function updateDocumentMeta(
   if (patch.asn !== undefined) bePatch.asn = patch.asn;
   if (patch.description !== undefined) bePatch.description = patch.description;
 
-  const { data } = await api.patch<any>(`/documents/${id}/meta`, bePatch);
-  const doc = unwrap<any>(data);
+  const { data } = await api.patch<unknown>(`/documents/${id}/meta`, bePatch);
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 
 export async function bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promise<number> {
   if (env.USE_MOCKS) return mockStore.bulkUpdateMeta(ids, patch);
 
-  const p = patch as any;
-  const bePatch: any = { ids };
+  const p: BulkMetaPatch & { tag_ids?: string[] } = patch;
+  const bePatch: Record<string, unknown> = { ids };
 
   // Handle berbagai kemungkinan shape
   if (p.add_tag_ids !== undefined) bePatch.addTagIds = p.add_tag_ids;
@@ -162,8 +170,8 @@ export async function bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promi
   if (p.document_type_id !== undefined) bePatch.documentTypeId = p.document_type_id;
   if (p.correspondent_id !== undefined) bePatch.correspondentId = p.correspondent_id;
 
-  const { data } = await api.post<any>("/documents/bulk-meta", bePatch);
-  const payload = unwrap<any>(data);
+  const { data } = await api.post<unknown>("/documents/bulk-meta", bePatch);
+  const payload = unwrap<{ updated?: unknown[] } | null>(data);
   return payload?.updated?.length ?? 0;
 }
 
@@ -171,18 +179,16 @@ export async function bulkUpdateMeta(ids: string[], patch: BulkMetaPatch): Promi
 export async function fetchAllDocuments(): Promise<DocumentListItem[]> {
   if (env.USE_MOCKS) return mockStore.listAllDocuments();
 
-  const { data } = await api.get<any>("/documents", {
+  const { data } = await api.get<unknown>("/documents", {
     params: { limit: 500 },
   });
-  const payload = unwrap<any>(data);
+  const payload = unwrap<{ documents?: BeDocument[] } | null>(data);
   const docs = payload?.documents ?? [];
 
-  return docs
-    .map((d: any) => ({
-      ...mapDocument(d),
-      folder_name: d.folder?.name ?? "—",
-    }))
-    .filter(Boolean) as DocumentListItem[];
+  return docs.map((d) => ({
+    ...mapDocument(d),
+    folder_name: d.folder?.name ?? "—",
+  })) as DocumentListItem[];
 }
 
 // ============ STATUS ============
@@ -197,11 +203,11 @@ export async function setDocumentStatus(
       await mockNotesStore.add(id, `[${status === "DRAFT" ? "Ditolak" : "Status"}] ${note}`);
     return doc;
   }
-  const { data } = await api.patch<any>(`/documents/${id}/status`, {
+  const { data } = await api.patch<unknown>(`/documents/${id}/status`, {
     status,
     reason: note,
   });
-  const doc = unwrap<any>(data);
+  const doc = unwrap<BeDocument>(data);
   return mapDocument(doc) as DocumentItem;
 }
 

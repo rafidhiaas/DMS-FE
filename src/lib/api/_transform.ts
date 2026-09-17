@@ -3,17 +3,104 @@
  * BE return: { success, data, pagination? }
  * FE expect: shape snake_case langsung
  */
+import type { AccessLevel, DocumentStatus, Role } from "@/types";
+
+// ============ Bentuk mentah dari BE (camelCase) ============
+export interface BeUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+export interface BeFolder {
+  id: string;
+  name: string;
+  description?: string | null;
+  ownerId: string;
+  parentFolderId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Hanya ada pada respons tree GET /folders. */
+  subFolders?: BeFolder[];
+}
+
+export interface BeVersion {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  s3FileKey: string;
+  fileSize?: string | number | null;
+  mimeType?: string | null;
+  uploadedBy: string;
+  changelog?: string | null;
+  createdAt?: string;
+}
+
+export interface BeShare {
+  id: string;
+  documentId: string;
+  userId: string;
+  accessLevel: AccessLevel;
+  sharedBy?: string;
+  expiresAt?: string | null;
+  createdAt?: string;
+  user?: BeUser | null;
+  document?: {
+    id: string;
+    title: string;
+    extension: string;
+    status: DocumentStatus;
+    currentVersion: number;
+    updatedAt?: string;
+  } | null;
+}
+
+export interface BeMetaRef {
+  id: string;
+  name: string;
+  color?: string;
+}
+
+export interface BeDocument {
+  id: string;
+  title: string;
+  description?: string | null;
+  extension: string;
+  sizeBytes?: string | number | null;
+  folderId: string;
+  uploadedBy: string;
+  currentVersion?: number;
+  status?: DocumentStatus;
+  isPublic?: boolean;
+  deletedAt?: string | null;
+  documentTypeId?: string | null;
+  correspondentId?: string | null;
+  documentDate?: string | null;
+  asn?: number | null;
+  customFields?: Record<string, string | number | boolean | null>;
+  documentTags?: { tag?: BeMetaRef | null }[];
+  folder?: BeFolder | null;
+  uploadedByUser?: BeUser | null;
+  versions?: BeVersion[];
+  documentType?: BeMetaRef | null;
+  correspondent?: BeMetaRef | null;
+  shares?: BeShare[];
+  userAccess?: { isOwner: boolean; accessLevel: AccessLevel | null } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 // ============ Generic Unwrap ============
-export function unwrap<T>(response: any): T {
+export function unwrap<T>(response: unknown): T {
   if (response && typeof response === "object" && "data" in response) {
-    return response.data as T;
+    return (response as { data: T }).data;
   }
   return response as T;
 }
 
 // ============ User ============
-export function mapUserSummary(u: any) {
+export function mapUserSummary(u: BeUser | null | undefined) {
   if (!u) return undefined;
   return {
     id: u.id,
@@ -24,7 +111,7 @@ export function mapUserSummary(u: any) {
 }
 
 // ============ Folder ============
-export function mapFolder(f: any) {
+export function mapFolder(f: BeFolder | null | undefined) {
   if (!f) return null;
   return {
     id: f.id,
@@ -37,72 +124,8 @@ export function mapFolder(f: any) {
   };
 }
 
-// ============ Document ============
-export function mapDocument(d: any) {
-  if (!d) return null;
-  return {
-    id: d.id,
-    title: d.title,
-    description: d.description ?? "",
-    extension: d.extension,
-    size_bytes: String(d.sizeBytes ?? "0"),
-    folder_id: d.folderId,
-    uploaded_by: d.uploadedBy,
-    current_version: d.currentVersion ?? 1,
-    status: d.status ?? "DRAFT",
-    is_public: d.isPublic ?? false,
-    deleted_at: d.deletedAt ?? null,
-
-    // Metadata
-    document_type_id: d.documentTypeId ?? null,
-    correspondent_id: d.correspondentId ?? null,
-    document_date: d.documentDate ?? null,
-    asn: d.asn ?? null,
-    custom_fields: d.customFields ?? {},
-    tag_ids: (d.documentTags ?? [])
-      .map((dt: any) => dt.tag?.id)
-      .filter(Boolean),
-    tags: (d.documentTags ?? []).map((dt: any) => ({
-      id: dt.tag?.id,
-      name: dt.tag?.name,
-      color: dt.tag?.color,
-    })),
-
-    // Relations
-    folder: d.folder ? mapFolder(d.folder) : undefined,
-    uploaded_by_user: mapUserSummary(d.uploadedByUser),
-    versions: d.versions?.map(mapVersion),
-    document_type: d.documentType ?? null,
-    correspondent: d.correspondent ?? null,
-
-    // ✅ Shares
-    shares: (d.shares ?? []).map((s: any) => ({
-      id: s.id,
-      document_id: s.documentId,
-      user_id: s.userId,
-      access_level: s.accessLevel,
-      shared_by: s.sharedBy,
-      expires_at: s.expiresAt ?? null,
-      created_at: s.createdAt ?? "",
-      user: mapUserSummary(s.user),
-    })),
-
-    // ✅ User Access
-    user_access: d.userAccess
-      ? {
-          is_owner: d.userAccess.isOwner,
-          access_level: d.userAccess.accessLevel,
-        }
-      : undefined,
-
-    // Timestamps
-    created_at: d.createdAt ?? "",
-    updated_at: d.updatedAt ?? "",
-  };
-}
-
 // ============ Version ============
-export function mapVersion(v: any) {
+export function mapVersion(v: BeVersion | null | undefined) {
   if (!v) return null;
   return {
     id: v.id,
@@ -118,7 +141,7 @@ export function mapVersion(v: any) {
 }
 
 // ============ Document Share ============
-export function mapShare(s: any) {
+export function mapShare(s: BeShare | null | undefined) {
   if (!s) return null;
   return {
     id: s.id,
@@ -139,5 +162,55 @@ export function mapShare(s: any) {
           updated_at: s.document.updatedAt ?? "",
         }
       : undefined,
+  };
+}
+
+// ============ Document ============
+export function mapDocument(d: BeDocument | null | undefined) {
+  if (!d) return null;
+  const tags = (d.documentTags ?? [])
+    .map((dt) => dt.tag)
+    .filter((t): t is BeMetaRef => Boolean(t));
+  return {
+    id: d.id,
+    title: d.title,
+    description: d.description ?? "",
+    extension: d.extension,
+    size_bytes: String(d.sizeBytes ?? "0"),
+    folder_id: d.folderId,
+    uploaded_by: d.uploadedBy,
+    current_version: d.currentVersion ?? 1,
+    status: d.status ?? ("DRAFT" as DocumentStatus),
+    is_public: d.isPublic ?? false,
+    deleted_at: d.deletedAt ?? null,
+
+    // Metadata
+    document_type_id: d.documentTypeId ?? null,
+    correspondent_id: d.correspondentId ?? null,
+    document_date: d.documentDate ?? null,
+    asn: d.asn ?? null,
+    custom_fields: d.customFields ?? {},
+    tag_ids: tags.map((t) => t.id),
+    tags: tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
+
+    // Relations
+    folder: d.folder ? (mapFolder(d.folder) ?? undefined) : undefined,
+    uploaded_by_user: mapUserSummary(d.uploadedByUser),
+    versions: d.versions?.map(mapVersion).filter((v) => v !== null),
+    document_type: d.documentType ?? null,
+    correspondent: d.correspondent ?? null,
+    shares: (d.shares ?? []).map(mapShare).filter((s) => s !== null),
+
+    // User Access
+    user_access: d.userAccess
+      ? {
+          is_owner: d.userAccess.isOwner,
+          access_level: d.userAccess.accessLevel,
+        }
+      : undefined,
+
+    // Timestamps
+    created_at: d.createdAt ?? "",
+    updated_at: d.updatedAt ?? "",
   };
 }
